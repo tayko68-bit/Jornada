@@ -1,4 +1,4 @@
-// sw.js - Versión Robusta para Segundo Plano
+// sw.js - Service Worker para GitHub Pages /Jornada/
 
 let intervalId = null;
 let scriptUrl = '';
@@ -7,13 +7,14 @@ let esperandoUbicacion = false;
 let ultimoHeartbeat = Date.now();
 let pageHidden = false;
 
-// Background Sync para casos de falla
+// Configuración para GitHub Pages
+const BASE_PATH = '/Jornada/';
 const SYNC_TAG = 'gps-sync';
 const STORAGE_KEY = 'pending-locations';
 
 // Función para almacenar ubicaciones pendientes
 const almacenarUbicacionPendiente = (lat, lon) => {
-  return caches.open('gps-cache').then(cache => {
+  return caches.open('gps-cache-v1').then(cache => {
     const data = {
       accion: 'registrar_gps',
       usuario: usuario,
@@ -28,7 +29,7 @@ const almacenarUbicacionPendiente = (lat, lon) => {
 // Función para procesar ubicaciones pendientes
 const procesarUbicacionesPendientes = async () => {
   try {
-    const cache = await caches.open('gps-cache');
+    const cache = await caches.open('gps-cache-v1');
     const keys = await cache.keys();
     const pendingKeys = keys.filter(key => key.url.includes('pending-'));
     
@@ -69,7 +70,7 @@ const solicitarUbicacion = () => {
   const timeoutId = setTimeout(() => {
     console.warn('[SW] Timeout esperando ubicación de la página');
     esperandoUbicacion = false;
-  }, 30000); // 30 segundos timeout
+  }, 30000);
   
   self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then(clients => {
     if (clients.length > 0) {
@@ -134,7 +135,6 @@ const verificarEstado = () => {
   
   if (tiempoSinHeartbeat > 120000) { // 2 minutos sin heartbeat
     console.warn('[SW] Página posiblemente inactiva, pero continuando GPS...');
-    // Continuar con GPS pero con menos frecuencia
   }
   
   // Procesar ubicaciones pendientes si hay conectividad
@@ -237,10 +237,18 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(event.request).catch(error => {
         console.error('[SW] Request falló, almacenando para más tarde');
-        // Aquí podrías almacenar la request para reintento
         return new Response('{"status":"queued"}', {
           headers: { 'Content-Type': 'application/json' }
         });
+      })
+    );
+  }
+  
+  // Manejar requests a archivos del PWA
+  if (event.request.url.includes(BASE_PATH)) {
+    event.respondWith(
+      caches.match(event.request).then(response => {
+        return response || fetch(event.request);
       })
     );
   }
@@ -248,18 +256,28 @@ self.addEventListener('fetch', event => {
 
 // Instalación y activación
 self.addEventListener('install', () => {
-  console.log('[SW] Instalando...');
+  console.log('[SW] Instalando Service Worker...');
   self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
-  console.log('[SW] Activando...');
+  console.log('[SW] Activando Service Worker...');
   event.waitUntil(
     Promise.all([
       self.clients.claim(),
       // Registrar para background sync
       self.registration.sync.register(SYNC_TAG).catch(err => {
         console.log('[SW] Background Sync no disponible:', err);
+      }),
+      // Limpiar caches antiguos si es necesario
+      caches.keys().then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => {
+            if (cacheName.includes('old-cache')) {
+              return caches.delete(cacheName);
+            }
+          })
+        );
       })
     ])
   );
