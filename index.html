@@ -109,7 +109,7 @@
             iniciarSeguimiento() {
                 if (this.estado.idSeguimiento) { this.mostrarMensaje('El seguimiento GPS ya está activo.', 'error'); return; }
                 this.mostrarMensaje('Seguimiento GPS activado.', 'success');
-                this.estado.idSeguimiento = setInterval(() => { this.enviarUbicacion(); }, 600000);
+                this.estado.idSeguimiento = setInterval(() => { this.enviarUbicacion(); }, 60000);
                 this.enviarUbicacion();
             }
 
@@ -172,3 +172,4 @@
     </script>
 </body>
 </html>
+
