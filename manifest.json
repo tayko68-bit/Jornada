@@ -2,23 +2,23 @@
   "name": "Registro de Jornada GPS",
   "short_name": "JornadaGPS",
   "description": "Sistema de registro de jornada con seguimiento GPS",
-  "start_url": "/",
+  "start_url": "/Jornada/",
+  "scope": "/Jornada/",
   "display": "standalone",
   "background_color": "#f4f7f6",
   "theme_color": "#28a745",
   "orientation": "portrait",
-  "scope": "/",
   "lang": "es",
   "categories": ["productivity", "business"],
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "/Jornada/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png", 
+      "src": "/Jornada/icon-512.png", 
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
