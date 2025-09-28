@@ -125,15 +125,22 @@
                     navigator.serviceWorker.register('sw.js')
                         .then((registration) => {
                             console.log('Service Worker Registrado con éxito:', registration);
-                            this.estado.serviceWorkerReady = true; // Marcamos que está listo
-                            // Habilitamos los botones una vez que el SW está listo
+                            // Esperar a que el SW esté activo y controlando la página
+                            return navigator.serviceWorker.ready;
+                        })
+                        .then(() => {
+                            this.estado.serviceWorkerReady = true;
                             document.getElementById('btn-iniciar-jornada').disabled = false;
                             document.getElementById('btn-finalizar-jornada').disabled = false;
+                            console.log('Service Worker listo y controlando la página.');
                         })
                         .catch(error => {
                             console.error('Error al registrar Service Worker:', error);
                             this.mostrarMensaje('Error crítico: No se pudo activar el servicio de fondo.', 'error');
+                            this.enviarErrorAlServidor(error);
                         });
+                } else {
+                    this.mostrarMensaje('El seguimiento en segundo plano no es compatible con este navegador.', 'error');
                 }
             }
             
