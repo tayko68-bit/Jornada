@@ -1,20 +1,18 @@
-// sw.js - Service Worker con capacidad de GPS en segundo plano
-
 let intervalId = null;
 let scriptUrl = '';
 let usuario = '';
 
-// Función que se ejecuta periódicamente para obtener y enviar la ubicación
 const enviarUbicacion = () => {
+  // Pide permiso para acceder a la geolocalización
   navigator.geolocation.getCurrentPosition(
     (posicion) => {
       const { latitude, longitude } = posicion.coords;
       console.log(`[SW] Ubicación obtenida: ${latitude}, ${longitude}`);
       
-      // Usamos fetch para enviar los datos en segundo plano
+      // Usa fetch para enviar los datos en segundo plano
       fetch(scriptUrl, {
         method: 'POST',
-        mode: 'no-cors',
+        mode: 'no-cors', // Esencial para peticiones simples a Apps Script desde un SW
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           accion: 'registrar_gps',
@@ -35,7 +33,7 @@ const enviarUbicacion = () => {
   );
 };
 
-// Listener para recibir órdenes desde la página principal
+// Escucha las órdenes de la página principal
 self.addEventListener('message', event => {
   if (event.data.action === 'startGps') {
     if (intervalId) {
@@ -49,6 +47,7 @@ self.addEventListener('message', event => {
     console.log(`[SW] Orden recibida: Iniciar GPS cada ${intervalo / 60000} minutos.`);
     enviarUbicacion(); // Enviamos una ubicación justo al iniciar
     intervalId = setInterval(enviarUbicacion, intervalo);
+
   } else if (event.data.action === 'stopGps') {
     if (intervalId) {
       console.log('[SW] Orden recibida: Detener GPS.');
@@ -58,7 +57,7 @@ self.addEventListener('message', event => {
   }
 });
 
-// Código estándar del Service Worker para instalación y activación
+// Código estándar para que el Service Worker se active rápidamente
 self.addEventListener('install', () => {
   self.skipWaiting();
 });
