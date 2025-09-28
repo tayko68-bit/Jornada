@@ -27,7 +27,7 @@
         class SistemaJornada {
             constructor() {
                 this.SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTMbUM3OZNnozxj_g8OONJG4zIubpSoHGA59GbliTlUwU0EJAoOSNuyUGhX5FDfsCC/exec";
-                this.estado = { procesando: false, idSeguimiento: null, usuarios: [] };
+                this.estado = { procesando: false, usuarios: [] }; // El idSeguimiento ya no se controla aquí
                 this.inicializar();
             }
 
@@ -55,10 +55,7 @@
                         option.textContent = user.nombre;
                         select.appendChild(option);
                     });
-                } catch (error) {
-                    this.mostrarMensaje('Error al cargar usuarios', 'error');
-                    this.enviarErrorAlServidor(error); // NUEVO: Enviar error al servidor
-                }
+                } catch (error) { this.mostrarMensaje('Error al cargar usuarios', 'error'); this.enviarErrorAlServidor(error); }
             }
 
             actualizarVehiculo(nombreSeleccionado) {
@@ -85,7 +82,6 @@
                 this.estado.procesando = true;
                 const btn = (tipoEvento === 'Inicio de Jornada') ? document.getElementById('btn-iniciar-jornada') : document.getElementById('btn-finalizar-jornada');
                 btn.disabled = true;
-                btn.innerHTML = '<span class="loading-spinner"></span>Registrando...';
                 this.mostrarMensaje('Obteniendo ubicación...', 'loading');
                 try {
                     const ubicacion = await this.obtenerUbicacion();
@@ -93,89 +89,52 @@
                     await this.enviarDatosPOST(payload);
                     this.mostrarMensaje(`✅ ${tipoEvento} registrado.`, 'success');
                     document.getElementById('kilometraje').value = '';
+                    
+                    // CAMBIO: Ahora enviamos órdenes al Service Worker
                     if (tipoEvento === 'Inicio de Jornada') this.iniciarSeguimiento();
                     else this.detenerSeguimiento();
+
                 } catch (error) {
                     this.mostrarMensaje(`Error: ${error.message}`, 'error');
-                    this.enviarErrorAlServidor(error); // NUEVO: Enviar error al servidor
+                    this.enviarErrorAlServidor(error);
                 } finally {
-                    setTimeout(() => {
-                        this.estado.procesando = false;
-                        btn.disabled = false;
-                        btn.innerHTML = (tipoEvento === 'Inicio de Jornada') ? '▶️ Iniciar Jornada y GPS' : '⏹️ Finalizar Jornada y GPS';
-                        this.limpiarMensaje();
-                    }, 3000);
+                    setTimeout(() => { this.estado.procesando = false; btn.disabled = false; this.limpiarMensaje(); }, 3000);
                 }
             }
-            
+
+            // CAMBIO: Esta función ahora solo envía la orden al Service Worker
             iniciarSeguimiento() {
-                if (this.estado.idSeguimiento) return;
-                this.mostrarMensaje('Seguimiento GPS activado.', 'success');
-                this.estado.idSeguimiento = setInterval(() => { this.enviarUbicacion(); }, 60000); // 1 minuto para pruebas
-                this.enviarUbicacion();
-            }
-
-            detenerSeguimiento() {
-                if (this.estado.idSeguimiento) {
-                    clearInterval(this.estado.idSeguimiento);
-                    this.estado.idSeguimiento = null;
-                    this.mostrarMensaje('Seguimiento GPS detenido.', 'success');
+                if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+                    this.mostrarMensaje('Error: El Service Worker no está activo.', 'error');
+                    return;
                 }
-            }
-
-            async enviarUbicacion() {
                 const usuario = document.getElementById('nombre-usuario').value;
-                if (!usuario) return;
-                navigator.geolocation.getCurrentPosition(
-                    async (pos) => {
-                        try {
-                            await this.enviarDatosPOST({ accion: 'registrar_gps', usuario: usuario, lat: pos.coords.latitude, lon: pos.coords.longitude });
-                            console.log(`Ubicación enviada: ${pos.coords.latitude}, ${pos.coords.longitude}`);
-                        } catch (error) { this.enviarErrorAlServidor(error); }
-                    },
-                    (error) => { this.enviarErrorAlServidor(error); },
-                    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-                );
-            }
-
-            obtenerUbicacion() {
-                return new Promise((resolve, reject) => {
-                    if (!navigator.geolocation) return reject(new Error("Geolocalización no soportada"));
-                    navigator.geolocation.getCurrentPosition(
-                        pos => resolve(`${pos.coords.latitude}, ${pos.coords.longitude}`),
-                        err => reject(new Error(err.message)),
-                        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-                    );
+                navigator.serviceWorker.controller.postMessage({
+                    action: 'startGps',
+                    usuario: usuario,
+                    url: this.SCRIPT_URL,
+                    intervalo: 600000 // 10 minutos (o 60000 para 1 min)
                 });
-            }
-            
-            // NUEVO: Función para enviar errores al script
-            async enviarErrorAlServidor(error) {
-                try {
-                    const usuario = document.getElementById('nombre-usuario').value || 'No definido';
-                    const payload = {
-                        accion: 'registrar_error',
-                        usuario: usuario,
-                        error: error.message || JSON.stringify(error)
-                    };
-                    // Usamos fetch directamente aquí para evitar bucles de errores
-                    await fetch(this.SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
-                    console.log("Error enviado al servidor.");
-                } catch (e) {
-                    console.error("Fallo al enviar el error al servidor:", e);
-                }
+                this.mostrarMensaje('Seguimiento GPS activado en segundo plano.', 'success');
             }
 
+            // CAMBIO: Esta función ahora solo envía la orden al Service Worker
+            detenerSeguimiento() {
+                if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
+                navigator.serviceWorker.controller.postMessage({ action: 'stopGps' });
+                this.mostrarMensaje('Seguimiento GPS detenido.', 'success');
+            }
+
+            // El resto de funciones auxiliares no cambian
+            obtenerUbicacion() { return new Promise((resolve, reject) => { if (!navigator.geolocation) return reject(new Error("Geolocalización no soportada")); navigator.geolocation.getCurrentPosition( pos => resolve(`${pos.coords.latitude}, ${pos.coords.longitude}`), err => reject(new Error(err.message)), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }); }); }
+            async enviarErrorAlServidor(error) { try { const usuario = document.getElementById('nombre-usuario').value||'No definido'; const payload = { accion: 'registrar_error', usuario: usuario, error: error.message || JSON.stringify(error) }; await fetch(this.SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); } catch (e) { console.error("Fallo al enviar el error:", e); } }
             async enviarDatosPOST(payload) { try { await fetch(this.SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); } catch (e) { throw new Error('Error de conexión.'); } }
             async enviarDatosGET(payload) { return new Promise((resolve, reject) => { const cb = 'c' + Date.now(); const s = document.createElement('script'); const t = setTimeout(() => { delete window[cb]; if (s.parentNode) s.remove(); reject(new Error('Timeout')); }, 20000); window[cb] = (r) => { clearTimeout(t); delete window[cb]; if (s.parentNode) s.remove(); if (r.status === 'success') { resolve(r.data); } else { reject(new Error(r.message)); } }; const u = new URL(this.SCRIPT_URL); u.searchParams.append('data', JSON.stringify(payload)); u.searchParams.append('callback', cb); s.src = u.href; s.onerror = () => { clearTimeout(t); delete window[cb]; if (s.parentNode) s.remove(); reject(new Error('Error de red.')); }; document.body.appendChild(s); }); }
-            
             mostrarMensaje(msg, tipo) { const div = document.getElementById('status-message'); div.textContent = msg; div.className = `status-message status-${tipo}`; div.classList.remove('hidden'); }
             limpiarMensaje() { const div = document.getElementById('status-message'); if (div) { div.className = 'status-message hidden'; } }
-            
             registrarServiceWorker() { if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').then(() => console.log('Service Worker Registrado')).catch(error => console.error('Error al registrar SW:', error)); } }
         }
         document.addEventListener('DOMContentLoaded', () => { new SistemaJornada(); });
     </script>
 </body>
 </html>
-
