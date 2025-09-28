@@ -26,7 +26,7 @@
     <script>
         class SistemaJornada {
             constructor() {
-                this.SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTMbUM3OZNnozxj_g8OONJG4zIubpSoHGA59GbliTlUwU0EJAoOSNuyUGhX5FDfsCC/exec";
+                this.SCRIPT_URL = "https.script.google.com/macros/s/AKfycbzTMbUM3OZNnozxj_g8OONJG4zIubpSoHGA59GbliTlUwU0EJAoOSNuyUGhX5FDfsCC/exec";
                 this.estado = { procesando: false, idSeguimiento: null, usuarios: [] };
                 this.inicializar();
             }
@@ -41,8 +41,6 @@
                 document.getElementById('btn-iniciar-jornada').addEventListener('click', () => this.registrarEvento('Inicio de Jornada'));
                 document.getElementById('btn-finalizar-jornada').addEventListener('click', () => this.registrarEvento('Fin de Jornada'));
                 document.getElementById('nombre-usuario').addEventListener('change', (e) => this.actualizarVehiculo(e.target.value));
-                const kmInput = document.getElementById('kilometraje');
-                kmInput.addEventListener('focus', () => { kmInput.style.webkitTextSecurity = 'none'; kmInput.style.color = '#333'; });
             }
 
             async cargarUsuarios() {
@@ -57,7 +55,10 @@
                         option.textContent = user.nombre;
                         select.appendChild(option);
                     });
-                } catch (error) { this.mostrarMensaje('Error al cargar usuarios', 'error'); }
+                } catch (error) {
+                    this.mostrarMensaje('Error al cargar usuarios', 'error');
+                    this.enviarErrorAlServidor(error); // NUEVO: Enviar error al servidor
+                }
             }
 
             actualizarVehiculo(nombreSeleccionado) {
@@ -96,6 +97,7 @@
                     else this.detenerSeguimiento();
                 } catch (error) {
                     this.mostrarMensaje(`Error: ${error.message}`, 'error');
+                    this.enviarErrorAlServidor(error); // NUEVO: Enviar error al servidor
                 } finally {
                     setTimeout(() => {
                         this.estado.procesando = false;
@@ -107,9 +109,9 @@
             }
             
             iniciarSeguimiento() {
-                if (this.estado.idSeguimiento) { this.mostrarMensaje('El seguimiento GPS ya está activo.', 'error'); return; }
+                if (this.estado.idSeguimiento) return;
                 this.mostrarMensaje('Seguimiento GPS activado.', 'success');
-                this.estado.idSeguimiento = setInterval(() => { this.enviarUbicacion(); }, 60000);
+                this.estado.idSeguimiento = setInterval(() => { this.enviarUbicacion(); }, 60000); // 1 minuto para pruebas
                 this.enviarUbicacion();
             }
 
@@ -129,9 +131,9 @@
                         try {
                             await this.enviarDatosPOST({ accion: 'registrar_gps', usuario: usuario, lat: pos.coords.latitude, lon: pos.coords.longitude });
                             console.log(`Ubicación enviada: ${pos.coords.latitude}, ${pos.coords.longitude}`);
-                        } catch (error) { console.error("Error al enviar ubicación:", error); }
+                        } catch (error) { this.enviarErrorAlServidor(error); }
                     },
-                    (error) => { console.error("Error al obtener GPS:", error.message); },
+                    (error) => { this.enviarErrorAlServidor(error); },
                     { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
                 );
             }
@@ -141,35 +143,38 @@
                     if (!navigator.geolocation) return reject(new Error("Geolocalización no soportada"));
                     navigator.geolocation.getCurrentPosition(
                         pos => resolve(`${pos.coords.latitude}, ${pos.coords.longitude}`),
-                        err => reject(new Error(`Error de GPS: ${err.message}`)),
+                        err => reject(new Error(err.message)),
                         { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
                     );
                 });
             }
             
+            // NUEVO: Función para enviar errores al script
+            async enviarErrorAlServidor(error) {
+                try {
+                    const usuario = document.getElementById('nombre-usuario').value || 'No definido';
+                    const payload = {
+                        accion: 'registrar_error',
+                        usuario: usuario,
+                        error: error.message || JSON.stringify(error)
+                    };
+                    // Usamos fetch directamente aquí para evitar bucles de errores
+                    await fetch(this.SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+                    console.log("Error enviado al servidor.");
+                } catch (e) {
+                    console.error("Fallo al enviar el error al servidor:", e);
+                }
+            }
+
             async enviarDatosPOST(payload) { try { await fetch(this.SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); } catch (e) { throw new Error('Error de conexión.'); } }
             async enviarDatosGET(payload) { return new Promise((resolve, reject) => { const cb = 'c' + Date.now(); const s = document.createElement('script'); const t = setTimeout(() => { delete window[cb]; if (s.parentNode) s.remove(); reject(new Error('Timeout')); }, 20000); window[cb] = (r) => { clearTimeout(t); delete window[cb]; if (s.parentNode) s.remove(); if (r.status === 'success') { resolve(r.data); } else { reject(new Error(r.message)); } }; const u = new URL(this.SCRIPT_URL); u.searchParams.append('data', JSON.stringify(payload)); u.searchParams.append('callback', cb); s.src = u.href; s.onerror = () => { clearTimeout(t); delete window[cb]; if (s.parentNode) s.remove(); reject(new Error('Error de red.')); }; document.body.appendChild(s); }); }
             
-            // CAMBIO: Funciones de mensaje corregidas para evitar que el cuadro se quede fijo
-            mostrarMensaje(msg, tipo) {
-                const div = document.getElementById('status-message');
-                div.textContent = msg;
-                div.className = 'status-message'; // 1. Resetea a la clase base
-                div.classList.add(`status-${tipo}`); // 2. Añade la clase de estado (color)
-                div.classList.remove('hidden'); // 3. Lo hace visible
-            }
-            limpiarMensaje() {
-                const div = document.getElementById('status-message');
-                if (div) {
-                    div.className = 'status-message'; // 1. Resetea a la clase base
-                    div.classList.add('hidden'); // 2. Lo oculta
-                }
-            }
+            mostrarMensaje(msg, tipo) { const div = document.getElementById('status-message'); div.textContent = msg; div.className = `status-message status-${tipo}`; div.classList.remove('hidden'); }
+            limpiarMensaje() { const div = document.getElementById('status-message'); if (div) { div.className = 'status-message hidden'; } }
             
-            registrarServiceWorker() { if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').then(() => console.log('Service Worker Registrado')).catch(error => console.error('Error al registrar Service Worker:', error)); } }
+            registrarServiceWorker() { if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').then(() => console.log('Service Worker Registrado')).catch(error => console.error('Error al registrar SW:', error)); } }
         }
         document.addEventListener('DOMContentLoaded', () => { new SistemaJornada(); });
     </script>
 </body>
 </html>
-
