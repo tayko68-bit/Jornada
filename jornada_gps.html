@@ -30,19 +30,53 @@
                 this.estado = { procesando: false, idSeguimiento: null, usuarios: [] };
                 this.inicializar();
             }
+
             async inicializar() {
                 this.bindearEventos();
                 await this.cargarUsuarios();
                 this.registrarServiceWorker();
             }
+
             bindearEventos() {
                 document.getElementById('btn-iniciar-jornada').addEventListener('click', () => this.registrarEvento('Inicio de Jornada'));
                 document.getElementById('btn-finalizar-jornada').addEventListener('click', () => this.registrarEvento('Fin de Jornada'));
                 document.getElementById('nombre-usuario').addEventListener('change', (e) => this.actualizarVehiculo(e.target.value));
             }
-            async cargarUsuarios() { /* ... (código sin cambios) ... */ }
-            actualizarVehiculo(nombre) { /* ... (código sin cambios) ... */ }
-            validarFormulario() { /* ... (código sin cambios) ... */ }
+
+            async cargarUsuarios() {
+                try {
+                    const select = document.getElementById('nombre-usuario');
+                    const usuarios = await this.enviarDatosGET({ accion: 'obtener_usuarios' });
+                    this.usuarios = usuarios;
+                    select.innerHTML = '<option value="">-- Selecciona tu nombre --</option>';
+                    usuarios.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = user.nombre;
+                        option.textContent = user.nombre;
+                        select.appendChild(option);
+                    });
+                } catch (error) {
+                    this.mostrarMensaje('Error al cargar usuarios', 'error');
+                }
+            }
+
+            actualizarVehiculo(nombreSeleccionado) {
+                const vehiculoInput = document.getElementById('vehiculo');
+                const usuario = this.usuarios.find(user => user.nombre === nombreSeleccionado);
+                vehiculoInput.value = usuario ? usuario.vehiculo : '';
+            }
+
+            validarFormulario() {
+                const nombre = document.getElementById('nombre-usuario').value;
+                const vehiculo = document.getElementById('vehiculo').value.trim();
+                const km = document.getElementById('kilometraje').value.trim();
+                if (!nombre || !vehiculo || !km) {
+                    this.mostrarMensaje('Completa todos los campos', 'error');
+                    return null;
+                }
+                return { nombre, vehiculo, kilometraje: km };
+            }
+
             async registrarEvento(tipoEvento) {
                 if (this.estado.procesando) return;
                 const datos = this.validarFormulario();
@@ -50,6 +84,7 @@
                 this.estado.procesando = true;
                 const btn = (tipoEvento === 'Inicio de Jornada') ? document.getElementById('btn-iniciar-jornada') : document.getElementById('btn-finalizar-jornada');
                 btn.disabled = true;
+                btn.innerHTML = '<span class="loading-spinner"></span>Registrando...';
                 this.mostrarMensaje('Obteniendo ubicación...', 'loading');
                 try {
                     const ubicacion = await this.obtenerUbicacion();
@@ -62,21 +97,73 @@
                 } catch (error) {
                     this.mostrarMensaje(`Error: ${error.message}`, 'error');
                 } finally {
-                    setTimeout(() => { this.estado.procesando = false; btn.disabled = false; this.limpiarMensaje(); }, 3000);
+                    setTimeout(() => {
+                        this.estado.procesando = false;
+                        btn.disabled = false;
+                        btn.innerHTML = (tipoEvento === 'Inicio de Jornada') ? '▶️ Iniciar Jornada y GPS' : '⏹️ Finalizar Jornada y GPS';
+                        this.limpiarMensaje();
+                    }, 3000);
                 }
             }
-            iniciarSeguimiento() { /* ... (código sin cambios) ... */ }
-            detenerSeguimiento() { /* ... (código sin cambios) ... */ }
-            async enviarUbicacion() { /* ... (código sin cambios) ... */ }
-            obtenerUbicacion() { /* ... (código sin cambios) ... */ }
-            async enviarDatosPOST(payload) { /* ... (código sin cambios) ... */ }
-            async enviarDatosGET(payload) { /* ... (código sin cambios) ... */ }
-            mostrarMensaje(msg, tipo) { /* ... (código sin cambios) ... */ }
-            limpiarMensaje() { /* ... (código sin cambios) ... */ }
-            registrarServiceWorker() { if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').then(() => console.log('Service Worker Registrado')); } }
+            
+            iniciarSeguimiento() {
+                if (this.estado.idSeguimiento) {
+                    this.mostrarMensaje('El seguimiento GPS ya está activo.', 'error');
+                    return;
+                }
+                this.mostrarMensaje('Seguimiento GPS activado.', 'success');
+                this.estado.idSeguimiento = setInterval(() => { this.enviarUbicacion(); }, 600000); // 10 minutos
+                this.enviarUbicacion();
+            }
+
+            detenerSeguimiento() {
+                if (this.estado.idSeguimiento) {
+                    clearInterval(this.estado.idSeguimiento);
+                    this.estado.idSeguimiento = null;
+                    this.mostrarMensaje('Seguimiento GPS detenido.', 'success');
+                }
+            }
+
+            async enviarUbicacion() {
+                const usuario = document.getElementById('nombre-usuario').value;
+                if (!usuario) return;
+                navigator.geolocation.getCurrentPosition(
+                    async (pos) => {
+                        try {
+                            await this.enviarDatosPOST({
+                                accion: 'registrar_gps',
+                                usuario: usuario,
+                                lat: pos.coords.latitude,
+                                lon: pos.coords.longitude
+                            });
+                            console.log(`Ubicación enviada: ${pos.coords.latitude}, ${pos.coords.longitude}`);
+                        } catch (error) { console.error("Error al enviar ubicación:", error); }
+                    },
+                    (error) => { console.error("Error al obtener GPS:", error.message); },
+                    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+                );
+            }
+
+            obtenerUbicacion() {
+                return new Promise((resolve, reject) => {
+                    if (!navigator.geolocation) return reject(new Error("Geolocalización no soportada"));
+                    navigator.geolocation.getCurrentPosition(
+                        pos => resolve(`${pos.coords.latitude}, ${pos.coords.longitude}`),
+                        err => reject(new Error(`Error de GPS: ${err.message}`)),
+                        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+                    );
+                });
+            }
+            
+            async enviarDatosPOST(payload) { try { await fetch(this.SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); } catch (e) { throw new Error('Error de conexión.'); } }
+            async enviarDatosGET(payload) { return new Promise((resolve, reject) => { const cb = 'c' + Date.now(); const s = document.createElement('script'); const t = setTimeout(() => { delete window[cb]; if (s.parentNode) s.remove(); reject(new Error('Timeout')); }, 20000); window[cb] = (r) => { clearTimeout(t); delete window[cb]; if (s.parentNode) s.remove(); if (r.status === 'success') { resolve(r.data); } else { reject(new Error(r.message)); } }; const u = new URL(this.SCRIPT_URL); u.searchParams.append('data', JSON.stringify(payload)); u.searchParams.append('callback', cb); s.src = u.href; s.onerror = () => { clearTimeout(t); delete window[cb]; if (s.parentNode) s.remove(); reject(new Error('Error de red.')); }; document.body.appendChild(s); }); }
+            
+            mostrarMensaje(msg, tipo) { const div = document.getElementById('status-message'); div.textContent = msg; div.className = `status-message status-${tipo}`; div.classList.remove('hidden'); }
+            limpiarMensaje() { const div = document.getElementById('status-message'); if (div) div.classList.add('hidden'); }
+            
+            registrarServiceWorker() { if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').then(() => console.log('Service Worker Registrado')).catch(error => console.error('Error al registrar Service Worker:', error)); } }
         }
         document.addEventListener('DOMContentLoaded', () => { new SistemaJornada(); });
     </script>
 </body>
-
 </html>
