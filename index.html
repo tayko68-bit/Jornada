@@ -27,7 +27,7 @@
         class SistemaJornada {
             constructor() {
                 this.SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTMbUM3OZNnozxj_g8OONJG4zIubpSoHGA59GbliTlUwU0EJAoOSNuyUGhX5FDfsCC/exec";
-                this.estado = { procesando: false, usuarios: [], serviceWorkerReady: false };
+                this.estado = { procesando: false, usuarios: [], serviceWorkerReady: false, gpsActivo: false };
                 this.inicializar();
             }
 
@@ -35,12 +35,50 @@
                 this.bindearEventos();
                 await this.cargarUsuarios();
                 this.registrarServiceWorker();
+                // Escuchar mensajes del Service Worker
+                this.configurarEscuchaServiceWorker();
             }
 
             bindearEventos() {
                 document.getElementById('btn-iniciar-jornada').addEventListener('click', () => this.registrarEvento('Inicio de Jornada'));
                 document.getElementById('btn-finalizar-jornada').addEventListener('click', () => this.registrarEvento('Fin de Jornada'));
                 document.getElementById('nombre-usuario').addEventListener('change', (e) => this.actualizarVehiculo(e.target.value));
+            }
+
+            // NUEVA FUNCIÓN: Configurar escucha de mensajes del Service Worker
+            configurarEscuchaServiceWorker() {
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    console.log('[Página] Mensaje del SW:', event.data);
+                    
+                    if (event.data.action === 'requestLocation') {
+                        console.log('[Página] SW solicita ubicación, obteniendo...');
+                        this.obtenerUbicacionParaSW();
+                    }
+                });
+            }
+
+            // NUEVA FUNCIÓN: Obtener ubicación y enviarla al Service Worker
+            async obtenerUbicacionParaSW() {
+                try {
+                    const ubicacionTexto = await this.obtenerUbicacion();
+                    const [lat, lon] = ubicacionTexto.split(', ').map(s => parseFloat(s.trim()));
+                    
+                    console.log(`[Página] Enviando ubicación al SW: ${lat}, ${lon}`);
+                    
+                    // Enviar ubicación al Service Worker
+                    navigator.serviceWorker.controller.postMessage({
+                        action: 'locationResponse',
+                        lat: lat,
+                        lon: lon
+                    });
+                } catch (error) {
+                    console.error('[Página] Error al obtener ubicación:', error);
+                    // Enviar error al SW
+                    navigator.serviceWorker.controller.postMessage({
+                        action: 'locationError',
+                        error: error.message
+                    });
+                }
             }
 
             async cargarUsuarios() {
@@ -110,6 +148,7 @@
             iniciarSeguimiento() {
                 console.log("[Página] Enviando orden 'startGps' al Service Worker...");
                 const usuario = document.getElementById('nombre-usuario').value;
+                this.estado.gpsActivo = true;
                 navigator.serviceWorker.controller.postMessage({
                     action: 'startGps',
                     usuario: usuario,
@@ -121,6 +160,7 @@
 
             detenerSeguimiento() {
                 console.log("[Página] Enviando orden 'stopGps' al Service Worker...");
+                this.estado.gpsActivo = false;
                 navigator.serviceWorker.controller.postMessage({ action: 'stopGps' });
                 this.mostrarMensaje('Seguimiento GPS detenido.', 'success');
             }
@@ -130,7 +170,6 @@
                     navigator.serviceWorker.register('sw.js')
                         .then((registration) => {
                             console.log('[Página] Service Worker Registrado.');
-                            // Esperamos a que el SW esté completamente activo
                             return navigator.serviceWorker.ready;
                         })
                         .then(() => {
@@ -140,7 +179,6 @@
                                 document.getElementById('btn-iniciar-jornada').disabled = false;
                                 document.getElementById('btn-finalizar-jornada').disabled = false;
                             } else {
-                                // Esto puede pasar en la primera carga, forzamos un refresco.
                                 console.log('[Página] Service Worker registrado pero no activo. Refrescando...');
                                 window.location.reload();
                             }
@@ -155,7 +193,6 @@
                 }
             }
             
-            // ... (resto de funciones auxiliares sin cambios) ...
             obtenerUbicacion() { return new Promise((resolve, reject) => { if (!navigator.geolocation) return reject(new Error("Geolocalización no soportada")); navigator.geolocation.getCurrentPosition( pos => resolve(`${pos.coords.latitude}, ${pos.coords.longitude}`), err => reject(new Error(err.message)), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }); }); }
             async enviarErrorAlServidor(error) { try { const usuario = document.getElementById('nombre-usuario').value||'No definido'; const payload = { accion: 'registrar_error', usuario: usuario, error: error.message || JSON.stringify(error) }; await fetch(this.SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); } catch (e) { console.error("Fallo al enviar el error:", e); } }
             async enviarDatosPOST(payload) { try { await fetch(this.SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); } catch (e) { throw new Error('Error de conexión.'); } }
