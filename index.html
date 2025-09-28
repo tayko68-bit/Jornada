@@ -4,12 +4,161 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro de Jornada</title>
+    <base href="/Jornada/">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#28a745"/>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <style>:root{--main-bg-color:#f4f7f6;--card-bg-color:#fff;--primary-color:#007bff;--secondary-color:#6c757d;--success-color:#28a745;--danger-color:#dc3545;--text-color:#333;--border-color:#e0e0e0}*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;margin:0;padding:10px;background-color:var(--main-bg-color);color:var(--text-color);line-height:1.6}.container{max-width:600px;margin:0 auto}.vista{background:var(--card-bg-color);padding:20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.1);margin-bottom:20px}h2{text-align:center;border-bottom:2px solid var(--border-color);padding-bottom:15px;margin-top:0;color:var(--text-color)}button{display:block;width:100%;padding:16px;font-size:18px;font-weight:700;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:15px;transition:all .3s ease;text-align:center}button:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,.15)}button:disabled{opacity:.6;cursor:not-allowed;transform:none}.btn-confirm{background-color:var(--success-color)}.btn-cancel{background-color:var(--danger-color)}label{display:block;margin-bottom:5px;font-weight:700;color:var(--text-color)}input,select{width:100%;padding:14px;margin-bottom:15px;border-radius:8px;border:2px solid var(--border-color);font-size:16px;background-color:#fcfcfc;transition:border-color .3s ease;font-family:inherit;-webkit-appearance:none}input:focus,select:focus{outline:0;border-color:var(--primary-color)}.status-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3000;max-width:90%;width:auto;min-width:320px;text-align:center;font-weight:700;padding:20px 25px;border-radius:12px;box-shadow:0 8px 25px rgba(0,0,0,.3);transition:all .3s ease;backdrop-filter:blur(5px)}.status-success{background-color:rgba(212,237,218,.95);color:#155724;border:2px solid #c3e6cb}.status-error{background-color:rgba(248,215,218,.95);color:#721c24;border:2px solid #f5c6cb}.status-loading{background-color:rgba(209,236,241,.95);color:#0c5460;border:2px solid #bee5eb}.gps-indicator{position:fixed;top:10px;right:10px;width:20px;height:20px;border-radius:50%;background-color:#dc3545;z-index:1000;animation:pulse 2s infinite}.gps-active{background-color:#28a745}.loading-spinner{display:inline-block;width:20px;height:20px;border:3px solid #f3f3f3;border-top:3px solid #3498db;border-radius:50%;animation:spin 1s linear infinite;margin-right:10px}@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}@keyframes pulse{0%{opacity:1}50%{opacity:0.5}100%{opacity:1}}.hidden{display:none!important}</style>
+    <meta name="apple-mobile-web-app-title" content="JornadaGPS">
+    <style>
+        :root{
+            --main-bg-color:#f4f7f6;
+            --card-bg-color:#fff;
+            --primary-color:#007bff;
+            --secondary-color:#6c757d;
+            --success-color:#28a745;
+            --danger-color:#dc3545;
+            --text-color:#333;
+            --border-color:#e0e0e0
+        }
+        *{box-sizing:border-box}
+        body{
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+            margin:0;
+            padding:10px;
+            background-color:var(--main-bg-color);
+            color:var(--text-color);
+            line-height:1.6
+        }
+        .container{max-width:600px;margin:0 auto}
+        .vista{
+            background:var(--card-bg-color);
+            padding:20px;
+            border-radius:12px;
+            box-shadow:0 4px 12px rgba(0,0,0,.1);
+            margin-bottom:20px
+        }
+        h2{
+            text-align:center;
+            border-bottom:2px solid var(--border-color);
+            padding-bottom:15px;
+            margin-top:0;
+            color:var(--text-color)
+        }
+        button{
+            display:block;
+            width:100%;
+            padding:16px;
+            font-size:18px;
+            font-weight:700;
+            color:#fff;
+            border:none;
+            border-radius:8px;
+            cursor:pointer;
+            margin-top:15px;
+            transition:all .3s ease;
+            text-align:center
+        }
+        button:hover:not(:disabled){
+            transform:translateY(-2px);
+            box-shadow:0 4px 8px rgba(0,0,0,.15)
+        }
+        button:disabled{
+            opacity:.6;
+            cursor:not-allowed;
+            transform:none
+        }
+        .btn-confirm{background-color:var(--success-color)}
+        .btn-cancel{background-color:var(--danger-color)}
+        label{
+            display:block;
+            margin-bottom:5px;
+            font-weight:700;
+            color:var(--text-color)
+        }
+        input,select{
+            width:100%;
+            padding:14px;
+            margin-bottom:15px;
+            border-radius:8px;
+            border:2px solid var(--border-color);
+            font-size:16px;
+            background-color:#fcfcfc;
+            transition:border-color .3s ease;
+            font-family:inherit;
+            -webkit-appearance:none
+        }
+        input:focus,select:focus{
+            outline:0;
+            border-color:var(--primary-color)
+        }
+        .status-message{
+            position:fixed;
+            top:50%;
+            left:50%;
+            transform:translate(-50%,-50%);
+            z-index:3000;
+            max-width:90%;
+            width:auto;
+            min-width:320px;
+            text-align:center;
+            font-weight:700;
+            padding:20px 25px;
+            border-radius:12px;
+            box-shadow:0 8px 25px rgba(0,0,0,.3);
+            transition:all .3s ease;
+            backdrop-filter:blur(5px)
+        }
+        .status-success{
+            background-color:rgba(212,237,218,.95);
+            color:#155724;
+            border:2px solid #c3e6cb
+        }
+        .status-error{
+            background-color:rgba(248,215,218,.95);
+            color:#721c24;
+            border:2px solid #f5c6cb
+        }
+        .status-loading{
+            background-color:rgba(209,236,241,.95);
+            color:#0c5460;
+            border:2px solid #bee5eb
+        }
+        .gps-indicator{
+            position:fixed;
+            top:10px;
+            right:10px;
+            width:20px;
+            height:20px;
+            border-radius:50%;
+            background-color:#dc3545;
+            z-index:1000;
+            animation:pulse 2s infinite;
+            cursor:pointer
+        }
+        .gps-active{background-color:#28a745}
+        .loading-spinner{
+            display:inline-block;
+            width:20px;
+            height:20px;
+            border:3px solid #f3f3f3;
+            border-top:3px solid #3498db;
+            border-radius:50%;
+            animation:spin 1s linear infinite;
+            margin-right:10px
+        }
+        @keyframes spin{
+            0%{transform:rotate(0)}
+            100%{transform:rotate(360deg)}
+        }
+        @keyframes pulse{
+            0%{opacity:1}
+            50%{opacity:0.5}
+            100%{opacity:1}
+        }
+        .hidden{display:none!important}
+    </style>
 </head>
 <body>
     <div class="gps-indicator" id="gps-indicator" title="Estado GPS"></div>
@@ -17,7 +166,9 @@
         <div class="vista">
             <h2>☀️🌙 Registro de Jornada</h2>
             <label for="nombre-usuario">Tu Nombre:</label>
-            <select id="nombre-usuario" required><option value="">-- Cargando usuarios... --</option></select>
+            <select id="nombre-usuario" required>
+                <option value="">-- Cargando usuarios... --</option>
+            </select>
             <label for="vehiculo">Vehículo:</label>
             <input type="text" id="vehiculo" placeholder="Selecciona tu nombre o escribe" required>
             <label for="kilometraje">Kilometraje:</label>
@@ -27,6 +178,7 @@
         </div>
     </div>
     <div class="status-message hidden" id="status-message"></div>
+    
     <script>
         class SistemaJornada {
             constructor() {
@@ -52,7 +204,6 @@
                 this.configurarIndicadorGPS();
             }
 
-            // NUEVA: Configurar indicador visual de GPS
             configurarIndicadorGPS() {
                 const indicator = document.getElementById('gps-indicator');
                 indicator.addEventListener('click', () => {
@@ -64,25 +215,16 @@
                 });
             }
 
-            // NUEVA: Configurar mantenimiento en segundo plano
             async configurarMantenimientoSegundoPlano() {
-                // 1. Wake Lock API para mantener la pantalla activa (opcional)
                 this.configurarWakeLock();
-                
-                // 2. Heartbeat para mantener la comunicación con el SW
                 this.configurarHeartbeat();
-                
-                // 3. Manejar cambios de visibilidad
                 this.configurarVisibilityHandler();
-                
-                // 4. Web Locks API para mantener la página activa
                 this.configurarWebLock();
             }
 
             async configurarWakeLock() {
                 if ('wakeLock' in navigator) {
                     try {
-                        // Solo activamos wake lock cuando el GPS está activo
                         document.addEventListener('visibilitychange', async () => {
                             if (this.estado.gpsActivo && document.visibilityState === 'visible' && !this.estado.wakeLock) {
                                 try {
@@ -100,7 +242,6 @@
             }
 
             configurarHeartbeat() {
-                // Enviar "ping" al SW cada 30 segundos para mantenerlo activo
                 this.estado.heartbeatInterval = setInterval(() => {
                     if (this.estado.gpsActivo && navigator.serviceWorker.controller) {
                         navigator.serviceWorker.controller.postMessage({
@@ -132,13 +273,11 @@
 
             async configurarWebLock() {
                 if ('locks' in navigator) {
-                    // Mantener un lock mientras el GPS esté activo
                     const manteneerLock = async () => {
                         if (this.estado.gpsActivo) {
                             try {
                                 await navigator.locks.request('gps-tracking', { mode: 'exclusive' }, async (lock) => {
                                     console.log('[Página] Web Lock adquirido para GPS');
-                                    // Mantener el lock mientras GPS esté activo
                                     while (this.estado.gpsActivo) {
                                         await new Promise(resolve => setTimeout(resolve, 5000));
                                     }
@@ -149,8 +288,6 @@
                             }
                         }
                     };
-                    
-                    // Iniciar el lock cuando se active GPS
                     document.addEventListener('gps-started', manteneerLock);
                 }
             }
@@ -217,7 +354,10 @@
                         option.textContent = user.nombre;
                         select.appendChild(option);
                     });
-                } catch (error) { this.mostrarMensaje('Error al cargar usuarios', 'error'); this.enviarErrorAlServidor(error); }
+                } catch (error) { 
+                    this.mostrarMensaje('Error al cargar usuarios', 'error'); 
+                    this.enviarErrorAlServidor(error); 
+                }
             }
 
             actualizarVehiculo(nombreSeleccionado) {
@@ -245,18 +385,31 @@
                 }
                 const datos = this.validarFormulario();
                 if (!datos) return;
+                
                 this.estado.procesando = true;
-                const btn = (tipoEvento === 'Inicio de Jornada') ? document.getElementById('btn-iniciar-jornada') : document.getElementById('btn-finalizar-jornada');
+                const btn = (tipoEvento === 'Inicio de Jornada') ? 
+                    document.getElementById('btn-iniciar-jornada') : 
+                    document.getElementById('btn-finalizar-jornada');
                 btn.disabled = true;
                 this.mostrarMensaje('Obteniendo ubicación...', 'loading');
+                
                 try {
                     const ubicacion = await this.obtenerUbicacion();
-                    const payload = { accion: 'registrar_jornada', tipo_evento: tipoEvento, ubicacion: ubicacion, ...datos };
+                    const payload = { 
+                        accion: 'registrar_jornada', 
+                        tipo_evento: tipoEvento, 
+                        ubicacion: ubicacion, 
+                        ...datos 
+                    };
                     await this.enviarDatosPOST(payload);
                     this.mostrarMensaje(`✅ ${tipoEvento} registrado.`, 'success');
                     document.getElementById('kilometraje').value = '';
-                    if (tipoEvento === 'Inicio de Jornada') this.iniciarSeguimiento();
-                    else this.detenerSeguimiento();
+                    
+                    if (tipoEvento === 'Inicio de Jornada') {
+                        this.iniciarSeguimiento();
+                    } else {
+                        this.detenerSeguimiento();
+                    }
                 } catch (error) {
                     this.mostrarMensaje(`Error: ${error.message}`, 'error');
                     this.enviarErrorAlServidor(error);
@@ -274,14 +427,13 @@
                 const usuario = document.getElementById('nombre-usuario').value;
                 this.estado.gpsActivo = true;
                 
-                // Disparar evento para activar Web Lock
                 document.dispatchEvent(new CustomEvent('gps-started'));
                 
                 navigator.serviceWorker.controller.postMessage({
                     action: 'startGps',
                     usuario: usuario,
                     url: this.SCRIPT_URL,
-                    intervalo: 60000 // 1 minuto
+                    intervalo: 60000
                 });
                 
                 this.actualizarIndicadorGPS(true);
@@ -292,7 +444,6 @@
                 console.log("[Página] Deteniendo seguimiento GPS...");
                 this.estado.gpsActivo = false;
                 
-                // Liberar Wake Lock si existe
                 if (this.estado.wakeLock) {
                     this.estado.wakeLock.release();
                     this.estado.wakeLock = null;
@@ -305,7 +456,9 @@
             
             registrarServiceWorker() {
                 if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.register('sw.js')
+                    navigator.serviceWorker.register('/Jornada/sw.js', {
+                        scope: '/Jornada/'
+                    })
                         .then((registration) => {
                             console.log('[Página] Service Worker Registrado.');
                             return navigator.serviceWorker.ready;
@@ -331,14 +484,100 @@
                 }
             }
             
-            obtenerUbicacion() { return new Promise((resolve, reject) => { if (!navigator.geolocation) return reject(new Error("Geolocalización no soportada")); navigator.geolocation.getCurrentPosition( pos => resolve(`${pos.coords.latitude}, ${pos.coords.longitude}`), err => reject(new Error(err.message)), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }); }); }
-            async enviarErrorAlServidor(error) { try { const usuario = document.getElementById('nombre-usuario').value||'No definido'; const payload = { accion: 'registrar_error', usuario: usuario, error: error.message || JSON.stringify(error) }; await fetch(this.SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); } catch (e) { console.error("Fallo al enviar el error:", e); } }
-            async enviarDatosPOST(payload) { try { await fetch(this.SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); } catch (e) { throw new Error('Error de conexión.'); } }
-            async enviarDatosGET(payload) { return new Promise((resolve, reject) => { const cb = 'c' + Date.now(); const s = document.createElement('script'); const t = setTimeout(() => { delete window[cb]; if (s.parentNode) s.remove(); reject(new Error('Timeout')); }, 20000); window[cb] = (r) => { clearTimeout(t); delete window[cb]; if (s.parentNode) s.remove(); if (r.status === 'success') { resolve(r.data); } else { reject(new Error(r.message)); } }; const u = new URL(this.SCRIPT_URL); u.searchParams.append('data', JSON.stringify(payload)); u.searchParams.append('callback', cb); s.src = u.href; s.onerror = () => { clearTimeout(t); delete window[cb]; if (s.parentNode) s.remove(); reject(new Error('Error de red.')); }; document.body.appendChild(s); }); }
-            mostrarMensaje(msg, tipo) { const div = document.getElementById('status-message'); div.textContent = msg; div.className = `status-message status-${tipo}`; div.classList.remove('hidden'); }
-            limpiarMensaje() { const div = document.getElementById('status-message'); if (div) { div.className = 'status-message hidden'; } }
+            obtenerUbicacion() { 
+                return new Promise((resolve, reject) => { 
+                    if (!navigator.geolocation) return reject(new Error("Geolocalización no soportada")); 
+                    navigator.geolocation.getCurrentPosition( 
+                        pos => resolve(`${pos.coords.latitude}, ${pos.coords.longitude}`), 
+                        err => reject(new Error(err.message)), 
+                        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+                    ); 
+                }); 
+            }
+            
+            async enviarErrorAlServidor(error) { 
+                try { 
+                    const usuario = document.getElementById('nombre-usuario').value || 'No definido'; 
+                    const payload = { 
+                        accion: 'registrar_error', 
+                        usuario: usuario, 
+                        error: error.message || JSON.stringify(error) 
+                    }; 
+                    await fetch(this.SCRIPT_URL, { 
+                        method: 'POST', 
+                        mode: 'no-cors', 
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+                        body: JSON.stringify(payload) 
+                    }); 
+                } catch (e) { 
+                    console.error("Fallo al enviar el error:", e); 
+                } 
+            }
+            
+            async enviarDatosPOST(payload) { 
+                try { 
+                    await fetch(this.SCRIPT_URL, { 
+                        method: 'POST', 
+                        mode: 'no-cors', 
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+                        body: JSON.stringify(payload) 
+                    }); 
+                } catch (e) { 
+                    throw new Error('Error de conexión.'); 
+                } 
+            }
+            
+            async enviarDatosGET(payload) { 
+                return new Promise((resolve, reject) => { 
+                    const cb = 'c' + Date.now(); 
+                    const s = document.createElement('script'); 
+                    const t = setTimeout(() => { 
+                        delete window[cb]; 
+                        if (s.parentNode) s.remove(); 
+                        reject(new Error('Timeout')); 
+                    }, 20000); 
+                    window[cb] = (r) => { 
+                        clearTimeout(t); 
+                        delete window[cb]; 
+                        if (s.parentNode) s.remove(); 
+                        if (r.status === 'success') { 
+                            resolve(r.data); 
+                        } else { 
+                            reject(new Error(r.message)); 
+                        } 
+                    }; 
+                    const u = new URL(this.SCRIPT_URL); 
+                    u.searchParams.append('data', JSON.stringify(payload)); 
+                    u.searchParams.append('callback', cb); 
+                    s.src = u.href; 
+                    s.onerror = () => { 
+                        clearTimeout(t); 
+                        delete window[cb]; 
+                        if (s.parentNode) s.remove(); 
+                        reject(new Error('Error de red.')); 
+                    }; 
+                    document.body.appendChild(s); 
+                }); 
+            }
+            
+            mostrarMensaje(msg, tipo) { 
+                const div = document.getElementById('status-message'); 
+                div.textContent = msg; 
+                div.className = `status-message status-${tipo}`; 
+                div.classList.remove('hidden'); 
+            }
+            
+            limpiarMensaje() { 
+                const div = document.getElementById('status-message'); 
+                if (div) { 
+                    div.className = 'status-message hidden'; 
+                } 
+            }
         }
-        document.addEventListener('DOMContentLoaded', () => { new SistemaJornada(); });
+        
+        document.addEventListener('DOMContentLoaded', () => { 
+            new SistemaJornada(); 
+        });
     </script>
 </body>
 </html>
