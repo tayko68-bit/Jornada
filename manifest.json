@@ -1,7 +1,7 @@
 {
   "name": "Registro de Jornada",
   "short_name": "Jornada",
-  "start_url": "jornada_gps.html",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#28a745",
