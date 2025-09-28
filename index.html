@@ -76,8 +76,9 @@
             }
 
             async registrarEvento(tipoEvento) {
-                if (this.estado.procesando || !this.estado.serviceWorkerReady) {
-                    if (!this.estado.serviceWorkerReady) this.mostrarMensaje('La app no está lista. Recarga la página.', 'error');
+                if (this.estado.procesando) return;
+                if (!this.estado.serviceWorkerReady) {
+                    this.mostrarMensaje('La app no está lista. Por favor, recarga la página.', 'error');
                     return;
                 }
                 const datos = this.validarFormulario();
@@ -98,12 +99,16 @@
                     this.mostrarMensaje(`Error: ${error.message}`, 'error');
                     this.enviarErrorAlServidor(error);
                 } finally {
-                    setTimeout(() => { this.estado.procesando = false; btn.disabled = false; this.limpiarMensaje(); }, 3000);
+                    setTimeout(() => {
+                        this.estado.procesando = false;
+                        btn.disabled = false;
+                        this.limpiarMensaje();
+                    }, 3000);
                 }
             }
             
             iniciarSeguimiento() {
-                console.log("Enviando orden 'startGps' al Service Worker...");
+                console.log("[Página] Enviando orden 'startGps' al Service Worker...");
                 const usuario = document.getElementById('nombre-usuario').value;
                 navigator.serviceWorker.controller.postMessage({
                     action: 'startGps',
@@ -111,11 +116,11 @@
                     url: this.SCRIPT_URL,
                     intervalo: 60000 // 1 minuto para pruebas
                 });
-                this.mostrarMensaje('Seguimiento GPS activado en segundo plano.', 'success');
+                this.mostrarMensaje('Seguimiento GPS activado.', 'success');
             }
 
             detenerSeguimiento() {
-                console.log("Enviando orden 'stopGps' al Service Worker...");
+                console.log("[Página] Enviando orden 'stopGps' al Service Worker...");
                 navigator.serviceWorker.controller.postMessage({ action: 'stopGps' });
                 this.mostrarMensaje('Seguimiento GPS detenido.', 'success');
             }
@@ -124,26 +129,33 @@
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.register('sw.js')
                         .then((registration) => {
-                            console.log('Service Worker Registrado con éxito:', registration);
-                            // Esperar a que el SW esté activo y controlando la página
+                            console.log('[Página] Service Worker Registrado.');
+                            // Esperamos a que el SW esté completamente activo
                             return navigator.serviceWorker.ready;
                         })
                         .then(() => {
-                            this.estado.serviceWorkerReady = true;
-                            document.getElementById('btn-iniciar-jornada').disabled = false;
-                            document.getElementById('btn-finalizar-jornada').disabled = false;
-                            console.log('Service Worker listo y controlando la página.');
+                            if (navigator.serviceWorker.controller) {
+                                console.log('[Página] Service Worker listo y controlando la página.');
+                                this.estado.serviceWorkerReady = true;
+                                document.getElementById('btn-iniciar-jornada').disabled = false;
+                                document.getElementById('btn-finalizar-jornada').disabled = false;
+                            } else {
+                                // Esto puede pasar en la primera carga, forzamos un refresco.
+                                console.log('[Página] Service Worker registrado pero no activo. Refrescando...');
+                                window.location.reload();
+                            }
                         })
                         .catch(error => {
-                            console.error('Error al registrar Service Worker:', error);
+                            console.error('[Página] Error al registrar Service Worker:', error);
                             this.mostrarMensaje('Error crítico: No se pudo activar el servicio de fondo.', 'error');
                             this.enviarErrorAlServidor(error);
                         });
                 } else {
-                    this.mostrarMensaje('El seguimiento en segundo plano no es compatible con este navegador.', 'error');
+                    this.mostrarMensaje('El seguimiento en segundo plano no es compatible.', 'error');
                 }
             }
             
+            // ... (resto de funciones auxiliares sin cambios) ...
             obtenerUbicacion() { return new Promise((resolve, reject) => { if (!navigator.geolocation) return reject(new Error("Geolocalización no soportada")); navigator.geolocation.getCurrentPosition( pos => resolve(`${pos.coords.latitude}, ${pos.coords.longitude}`), err => reject(new Error(err.message)), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }); }); }
             async enviarErrorAlServidor(error) { try { const usuario = document.getElementById('nombre-usuario').value||'No definido'; const payload = { accion: 'registrar_error', usuario: usuario, error: error.message || JSON.stringify(error) }; await fetch(this.SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); } catch (e) { console.error("Fallo al enviar el error:", e); } }
             async enviarDatosPOST(payload) { try { await fetch(this.SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); } catch (e) { throw new Error('Error de conexión.'); } }
