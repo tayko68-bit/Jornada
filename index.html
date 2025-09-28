@@ -10,552 +10,194 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="JornadaGPS">
     <style>
-        /* ... mismo CSS que antes ... */
-        .config-panel{
-            background:var(--card-bg-color);
+        *{box-sizing:border-box}
+        body{
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+            margin:0;
+            padding:20px;
+            background-color:#f4f7f6;
+            color:#333;
+            line-height:1.6
+        }
+        .container{max-width:500px;margin:0 auto}
+        .card{
+            background:#fff;
+            padding:25px;
+            border-radius:12px;
+            box-shadow:0 4px 12px rgba(0,0,0,.1);
+            margin-bottom:20px
+        }
+        h1{
+            text-align:center;
+            margin-top:0;
+            color:#28a745;
+            border-bottom:2px solid #e0e0e0;
+            padding-bottom:15px
+        }
+        label{
+            display:block;
+            margin-bottom:8px;
+            font-weight:600;
+            color:#333
+        }
+        input,select{
+            width:100%;
+            padding:15px;
+            margin-bottom:20px;
+            border-radius:8px;
+            border:2px solid #e0e0e0;
+            font-size:16px;
+            font-family:inherit
+        }
+        input:focus,select:focus{
+            outline:0;
+            border-color:#28a745
+        }
+        button{
+            display:block;
+            width:100%;
+            padding:18px;
+            font-size:18px;
+            font-weight:700;
+            color:#fff;
+            border:none;
+            border-radius:8px;
+            cursor:pointer;
+            margin-bottom:15px;
+            transition:all .3s ease
+        }
+        button:disabled{
+            opacity:.6;
+            cursor:not-allowed
+        }
+        .btn-start{background-color:#28a745}
+        .btn-end{background-color:#dc3545}
+        .btn-start:hover:not(:disabled){background-color:#218838}
+        .btn-end:hover:not(:disabled){background-color:#c82333}
+        .status{
+            position:fixed;
+            top:20px;
+            left:50%;
+            transform:translateX(-50%);
+            background:#fff;
+            padding:15px 25px;
+            border-radius:25px;
+            box-shadow:0 4px 15px rgba(0,0,0,.2);
+            z-index:1000;
+            font-weight:600
+        }
+        .status.active{
+            background:#28a745;
+            color:#fff
+        }
+        .gps-count{
+            position:fixed;
+            top:20px;
+            right:20px;
+            background:rgba(0,0,0,.8);
+            color:#fff;
+            padding:8px 12px;
+            border-radius:20px;
+            font-size:12px;
+            z-index:1000
+        }
+        .message{
+            position:fixed;
+            top:50%;
+            left:50%;
+            transform:translate(-50%,-50%);
+            background:#fff;
+            padding:20px 30px;
+            border-radius:12px;
+            box-shadow:0 8px 25px rgba(0,0,0,.3);
+            z-index:2000;
+            text-align:center;
+            font-weight:600;
+            max-width:90%;
+            display:none
+        }
+        .message.show{display:block}
+        .message.success{border-left:5px solid #28a745}
+        .message.error{border-left:5px solid #dc3545}
+        .message.loading{border-left:5px solid #007bff}
+        .info{
+            background:#e3f2fd;
+            border:1px solid #90caf9;
+            color:#1976d2;
             padding:15px;
             border-radius:8px;
-            margin-bottom:15px;
-            border:1px solid var(--border-color)
-        }
-        .config-row{
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            margin-bottom:10px
-        }
-        .switch{
-            position:relative;
-            display:inline-block;
-            width:50px;
-            height:24px
-        }
-        .switch input{
-            opacity:0;
-            width:0;
-            height:0
-        }
-        .slider{
-            position:absolute;
-            cursor:pointer;
-            top:0;
-            left:0;
-            right:0;
-            bottom:0;
-            background-color:#ccc;
-            transition:.4s;
-            border-radius:24px
-        }
-        .slider:before{
-            position:absolute;
-            content:"";
-            height:18px;
-            width:18px;
-            left:3px;
-            bottom:3px;
-            background-color:white;
-            transition:.4s;
-            border-radius:50%
-        }
-        input:checked + .slider{
-            background-color:var(--success-color)
-        }
-        input:checked + .slider:before{
-            transform:translateX(26px)
-        }
-        .battery-indicator{
-            font-size:12px;
-            color:var(--secondary-color)
+            margin-bottom:20px;
+            font-size:14px
         }
     </style>
 </head>
 <body>
-    <div class="gps-indicator" id="gps-indicator" title="Estado GPS"></div>
-    <div class="debug-info" id="debug-info">Esperando...</div>
+    <div class="status" id="status">GPS Inactivo</div>
+    <div class="gps-count" id="gps-count">Ubicaciones: 0</div>
     
     <div class="container">
-        <!-- Panel de configuración de batería -->
-        <div class="config-panel">
-            <h3>⚙️ Configuración de Batería</h3>
-            <div class="config-row">
-                <span>Intervalo GPS:</span>
-                <select id="gps-interval">
-                    <option value="30000">30 seg (+ batería)</option>
-                    <option value="60000" selected>1 min (normal)</option>
-                    <option value="120000">2 min (- batería)</option>
-                    <option value="300000">5 min (eco)</option>
-                </select>
+        <div class="card">
+            <h1>🚛 Registro de Jornada</h1>
+            
+            <div class="info">
+                📍 <strong>Instrucciones:</strong><br>
+                1. Selecciona tu nombre y vehículo<br>
+                2. Ingresa el kilometraje inicial<br>
+                3. Presiona "Iniciar Jornada" (activará GPS automático)<br>
+                4. Al terminar, ingresa kilometraje final y presiona "Finalizar"
             </div>
-            <div class="config-row">
-                <span>Modo supervivencia agresivo:</span>
-                <label class="switch">
-                    <input type="checkbox" id="modo-agresivo">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="config-row">
-                <span>Wake Lock (pantalla):</span>
-                <label class="switch">
-                    <input type="checkbox" id="wake-lock-enable">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="battery-indicator" id="battery-status">
-                Consumo estimado: Medio
-            </div>
-        </div>
 
-        <div class="vista">
-            <h2>☀️🌙 Registro de Jornada</h2>
-            <label for="nombre-usuario">Tu Nombre:</label>
-            <select id="nombre-usuario" required>
-                <option value="">-- Cargando usuarios... --</option>
+            <label for="nombre">Chofer:</label>
+            <select id="nombre" required>
+                <option value="">-- Selecciona tu nombre --</option>
             </select>
+
             <label for="vehiculo">Vehículo:</label>
-            <input type="text" id="vehiculo" placeholder="Selecciona tu nombre o escribe" required>
+            <input type="text" id="vehiculo" placeholder="Vehículo asignado" required>
+
             <label for="kilometraje">Kilometraje:</label>
-            <input type="text" inputmode="numeric" pattern="[0-9]*" id="kilometraje" placeholder="Ej: 121205" required>
-            <button type="button" id="btn-iniciar-jornada" class="btn-confirm" disabled>▶️ Iniciar Jornada y GPS</button>
-            <button type="button" id="btn-finalizar-jornada" class="btn-cancel" disabled>⏹️ Finalizar Jornada y GPS</button>
+            <input type="number" id="kilometraje" placeholder="Ej: 125000" required>
+
+            <button type="button" id="btn-iniciar" class="btn-start" disabled>
+                ▶️ Iniciar Jornada y GPS
+            </button>
+            
+            <button type="button" id="btn-finalizar" class="btn-end" disabled>
+                ⏹️ Finalizar Jornada
+            </button>
         </div>
     </div>
-    <div class="status-message hidden" id="status-message"></div>
+    
+    <div class="message" id="message"></div>
     
     <script>
-        class SistemaJornada {
+        class JornadaSimple {
             constructor() {
                 this.SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTMbUM3OZNnozxj_g8OONJG4zIubpSoHGA59GbliTlUwU0EJAoOSNuyUGhX5FDfsCC/exec";
-                this.configuracion = {
-                    intervaloGPS: 60000,
-                    modoAgresivo: false,
-                    wakeLockHabilitado: false,
-                    nivelBateria: 100
-                };
-                this.estado = { 
-                    procesando: false, 
-                    usuarios: [], 
-                    serviceWorkerReady: false, 
-                    gpsActivo: false,
-                    wakeLock: null,
-                    heartbeatInterval: null,
+                this.estado = {
+                    jornadaActiva: false,
+                    swReady: false,
+                    gpsCount: 0,
+                    usuarios: [],
                     gpsInterval: null,
-                    keepAliveInterval: null,
-                    ubicacionesProcesadas: 0,
-                    ultimaUbicacion: null,
-                    modoSegundoPlano: false,
-                    consumoBateria: 'medio'
+                    ultimaUbicacion: null
                 };
-                this.inicializar();
+                this.init();
             }
 
-            async inicializar() {
-                this.actualizarDebugInfo("Inicializando sistema optimizado...");
-                this.configurarPanelBateria();
-                this.monitorearBateria();
-                this.bindearEventos();
+            async init() {
                 await this.cargarUsuarios();
-                this.registrarServiceWorker();
-                this.configurarEscuchaServiceWorker();
-                this.configurarIndicadorGPS();
-                this.configurarDeteccionSegundoPlano();
-                this.actualizarDebugInfo("Sistema listo - Modo ECO");
+                this.setupEventos();
+                this.registrarSW();
+                this.configurarGPS();
             }
-
-            // NUEVA: Panel de configuración de batería
-            configurarPanelBateria() {
-                document.getElementById('gps-interval').addEventListener('change', (e) => {
-                    this.configuracion.intervaloGPS = parseInt(e.target.value);
-                    this.actualizarEstimacionBateria();
-                    this.actualizarDebugInfo(`Intervalo GPS: ${this.configuracion.intervaloGPS/1000}s`);
-                    
-                    // Si GPS está activo, reiniciar con nuevo intervalo
-                    if (this.estado.gpsActivo) {
-                        this.reiniciarGPS();
-                    }
-                });
-
-                document.getElementById('modo-agresivo').addEventListener('change', (e) => {
-                    this.configuracion.modoAgresivo = e.target.checked;
-                    this.actualizarEstimacionBateria();
-                    this.actualizarDebugInfo(`Modo agresivo: ${this.configuracion.modoAgresivo ? 'ON' : 'OFF'}`);
-                });
-
-                document.getElementById('wake-lock-enable').addEventListener('change', (e) => {
-                    this.configuracion.wakeLockHabilitado = e.target.checked;
-                    this.actualizarEstimacionBateria();
-                    
-                    if (!e.target.checked && this.estado.wakeLock) {
-                        this.estado.wakeLock.release();
-                        this.estado.wakeLock = null;
-                        this.actualizarDebugInfo("Wake Lock desactivado por usuario");
-                    } else if (e.target.checked && this.estado.gpsActivo) {
-                        this.asegurarWakeLock();
-                    }
-                });
-            }
-
-            // NUEVA: Monitoreo de batería
-            async monitorearBateria() {
-                if ('getBattery' in navigator) {
-                    try {
-                        const battery = await navigator.getBattery();
-                        this.configuracion.nivelBateria = Math.round(battery.level * 100);
-                        
-                        const actualizarBateria = () => {
-                            this.configuracion.nivelBateria = Math.round(battery.level * 100);
-                            this.ajustarComportamientoPorBateria();
-                            this.actualizarEstimacionBateria();
-                        };
-
-                        battery.addEventListener('levelchange', actualizarBateria);
-                        battery.addEventListener('chargingchange', actualizarBateria);
-                        
-                        this.actualizarDebugInfo(`Batería: ${this.configuracion.nivelBateria}%`);
-                    } catch (error) {
-                        this.actualizarDebugInfo("Monitoreo de batería no disponible");
-                    }
-                }
-            }
-
-            // NUEVA: Ajustar comportamiento según batería
-            ajustarComportamientoPorBateria() {
-                if (this.configuracion.nivelBateria < 20) {
-                    // Batería baja: modo ultra eco
-                    this.configuracion.intervaloGPS = Math.max(this.configuracion.intervaloGPS, 300000); // Mín 5 min
-                    this.configuracion.modoAgresivo = false;
-                    this.configuracion.wakeLockHabilitado = false;
-                    
-                    document.getElementById('gps-interval').value = '300000';
-                    document.getElementById('modo-agresivo').checked = false;
-                    document.getElementById('wake-lock-enable').checked = false;
-                    
-                    this.actualizarDebugInfo("🔋 BATERÍA BAJA - Modo ultra ECO activado");
-                    this.mostrarMensaje('🔋 Batería baja: activado modo ECO', 'error');
-                    
-                    if (this.estado.gpsActivo) {
-                        this.reiniciarGPS();
-                    }
-                } else if (this.configuracion.nivelBateria < 50) {
-                    // Batería media: modo moderado
-                    if (this.configuracion.intervaloGPS < 60000) {
-                        this.configuracion.intervaloGPS = 60000;
-                        document.getElementById('gps-interval').value = '60000';
-                        this.actualizarDebugInfo("🔋 Batería media - Ajustado a 1 min");
-                    }
-                }
-            }
-
-            // NUEVA: Actualizar estimación de consumo
-            actualizarEstimacionBateria() {
-                let consumo = 0;
-                
-                // Consumo base del GPS
-                if (this.configuracion.intervaloGPS <= 30000) consumo += 4;
-                else if (this.configuracion.intervaloGPS <= 60000) consumo += 3;
-                else if (this.configuracion.intervaloGPS <= 120000) consumo += 2;
-                else consumo += 1;
-                
-                // Consumo del modo agresivo
-                if (this.configuracion.modoAgresivo) consumo += 2;
-                
-                // Consumo del Wake Lock
-                if (this.configuracion.wakeLockHabilitado) consumo += 1;
-                
-                let nivel, color;
-                if (consumo <= 2) {
-                    nivel = 'Bajo';
-                    color = '#28a745';
-                } else if (consumo <= 4) {
-                    nivel = 'Medio';
-                    color = '#ffc107';
-                } else {
-                    nivel = 'Alto';
-                    color = '#dc3545';
-                }
-                
-                this.estado.consumoBateria = nivel.toLowerCase();
-                const batteryStatus = document.getElementById('battery-status');
-                batteryStatus.innerHTML = `Consumo estimado: <span style="color:${color}">${nivel}</span> | Batería: ${this.configuracion.nivelBateria}%`;
-            }
-
-            actualizarDebugInfo(mensaje) {
-                const debugDiv = document.getElementById('debug-info');
-                const timestamp = new Date().toLocaleTimeString();
-                debugDiv.innerHTML += `<div>${timestamp}: ${mensaje}</div>`;
-                debugDiv.scrollTop = debugDiv.scrollHeight;
-                console.log(`[DEBUG] ${mensaje}`);
-            }
-
-            // VERSIÓN OPTIMIZADA: Detección de segundo plano
-            configurarDeteccionSegundoPlano() {
-                document.addEventListener('visibilitychange', () => {
-                    if (document.hidden && this.estado.gpsActivo) {
-                        this.actualizarDebugInfo("🙈 PÁGINA OCULTA");
-                        this.estado.modoSegundoPlano = true;
-                        if (this.configuracion.modoAgresivo) {
-                            this.activarModoSupervivencia();
-                        } else {
-                            this.activarModoEco();
-                        }
-                    } else if (!document.hidden && this.estado.gpsActivo) {
-                        this.actualizarDebugInfo("👁️ PÁGINA VISIBLE");
-                        this.estado.modoSegundoPlano = false;
-                        this.desactivarModoSupervivencia();
-                    }
-                });
-            }
-
-            // NUEVA: Modo ECO para segundo plano
-            activarModoEco() {
-                this.actualizarDebugInfo("🌱 Modo ECO activado");
-                
-                // Solo mantener lo esencial
-                if (!this.estado.gpsInterval) {
-                    this.estado.gpsInterval = setInterval(() => {
-                        this.procesarGPSDirecto();
-                    }, this.configuracion.intervaloGPS);
-                }
-                
-                // Heartbeat menos frecuente
-                this.configurarHeartbeat(30000); // Cada 30 segundos
-            }
-
-            // VERSIÓN OPTIMIZADA: Modo supervivencia
-            activarModoSupervivencia() {
-                this.actualizarDebugInfo("🛡️ Modo supervivencia activado");
-                
-                // 1. GPS directo
-                if (!this.estado.gpsInterval) {
-                    this.estado.gpsInterval = setInterval(() => {
-                        this.procesarGPSDirecto();
-                    }, this.configuracion.intervaloGPS);
-                }
-
-                // 2. Keep-alive moderado (solo si modo agresivo)
-                if (this.configuracion.modoAgresivo) {
-                    this.activarKeepAliveModerno();
-                }
-
-                // 3. Wake Lock solo si habilitado
-                if (this.configuracion.wakeLockHabilitado) {
-                    this.asegurarWakeLock();
-                }
-            }
-
-            // NUEVA: Keep-alive moderno y eficiente
-            activarKeepAliveModerno() {
-                if (!this.estado.keepAliveInterval) {
-                    this.estado.keepAliveInterval = setInterval(() => {
-                        // Solo un ping ligero
-                        fetch('data:text/plain,ping', { method: 'HEAD' }).catch(() => {});
-                        this.actualizarDebugInfo("💓 Keep-alive ECO");
-                    }, 60000); // Cada minuto (menos frecuente)
-                }
-            }
-
-            desactivarModoSupervivencia() {
-                if (this.estado.gpsInterval) {
-                    clearInterval(this.estado.gpsInterval);
-                    this.estado.gpsInterval = null;
-                    this.actualizarDebugInfo("🛡️ Supervivencia desactivada");
-                }
-                
-                if (this.estado.keepAliveInterval) {
-                    clearInterval(this.estado.keepAliveInterval);
-                    this.estado.keepAliveInterval = null;
-                }
-            }
-
-            // VERSIÓN OPTIMIZADA: GPS directo
-            async procesarGPSDirecto() {
-                try {
-                    this.actualizarDebugInfo("📍 GPS DIRECTO...");
-                    const ubicacionTexto = await this.obtenerUbicacion();
-                    const [lat, lon] = ubicacionTexto.split(', ').map(s => parseFloat(s.trim()));
-                    
-                    await fetch(this.SCRIPT_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({
-                            accion: 'registrar_gps',
-                            usuario: document.getElementById('nombre-usuario').value,
-                            lat: lat,
-                            lon: lon,
-                            timestamp: Date.now(),
-                            modo: this.configuracion.modoAgresivo ? 'agresivo' : 'eco',
-                            segundo_plano: this.estado.modoSegundoPlano,
-                            bateria: this.configuracion.nivelBateria
-                        })
-                    });
-                    
-                    this.estado.ubicacionesProcesadas++;
-                    this.actualizarDebugInfo(`✅ GPS #${this.estado.ubicacionesProcesadas} enviado`);
-                    this.actualizarIndicadorGPS(true);
-                    
-                } catch (error) {
-                    this.actualizarDebugInfo(`❌ GPS falló: ${error.message}`);
-                }
-            }
-
-            // NUEVA: Reiniciar GPS con nueva configuración
-            reiniciarGPS() {
-                if (this.estado.gpsActivo) {
-                    this.actualizarDebugInfo("🔄 Reiniciando GPS con nueva configuración...");
-                    
-                    // Detener intervalos actuales
-                    if (this.estado.gpsInterval) {
-                        clearInterval(this.estado.gpsInterval);
-                        this.estado.gpsInterval = null;
-                    }
-                    
-                    // Reiniciar Service Worker
-                    if (navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.controller.postMessage({
-                            action: 'stopGps'
-                        });
-                        
-                        setTimeout(() => {
-                            navigator.serviceWorker.controller.postMessage({
-                                action: 'startGps',
-                                usuario: document.getElementById('nombre-usuario').value,
-                                url: this.SCRIPT_URL,
-                                intervalo: this.configuracion.intervaloGPS
-                            });
-                        }, 1000);
-                    }
-                    
-                    // Reiniciar modo segundo plano si está activo
-                    if (this.estado.modoSegundoPlano) {
-                        if (this.configuracion.modoAgresivo) {
-                            this.activarModoSupervivencia();
-                        } else {
-                            this.activarModoEco();
-                        }
-                    }
-                }
-            }
-
-            async asegurarWakeLock() {
-                if ('wakeLock' in navigator && this.configuracion.wakeLockHabilitado && !this.estado.wakeLock) {
-                    try {
-                        this.estado.wakeLock = await navigator.wakeLock.request('screen');
-                        this.actualizarDebugInfo("🔒 Wake Lock activado");
-                    } catch (error) {
-                        this.actualizarDebugInfo("❌ Wake Lock falló");
-                    }
-                }
-            }
-
-            configurarHeartbeat(intervalo = 15000) {
-                if (this.estado.heartbeatInterval) {
-                    clearInterval(this.estado.heartbeatInterval);
-                }
-                
-                this.estado.heartbeatInterval = setInterval(() => {
-                    if (this.estado.gpsActivo && navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.controller.postMessage({
-                            action: 'heartbeat',
-                            timestamp: Date.now(),
-                            configuracion: this.configuracion,
-                            bateria: this.configuracion.nivelBateria
-                        });
-                    }
-                }, intervalo);
-            }
-
-            // ... resto de métodos igual que antes pero optimizados ...
-
-            configurarIndicadorGPS() {
-                const indicator = document.getElementById('gps-indicator');
-                indicator.addEventListener('click', () => {
-                    if (this.estado.gpsActivo) {
-                        this.mostrarMensaje(`GPS activo - ${this.estado.ubicacionesProcesadas} ubicaciones | Consumo: ${this.estado.consumoBateria}`, 'success');
-                    } else {
-                        this.mostrarMensaje('GPS inactivo', 'error');
-                    }
-                });
-            }
-
-            bindearEventos() {
-                document.getElementById('btn-iniciar-jornada').addEventListener('click', () => this.registrarEvento('Inicio de Jornada'));
-                document.getElementById('btn-finalizar-jornada').addEventListener('click', () => this.registrarEvento('Fin de Jornada'));
-                document.getElementById('nombre-usuario').addEventListener('change', (e) => this.actualizarVehiculo(e.target.value));
-            }
-
-            configurarEscuchaServiceWorker() {
-                if (this.serviceWorkerMessageHandler) {
-                    navigator.serviceWorker.removeEventListener('message', this.serviceWorkerMessageHandler);
-                }
-
-                this.serviceWorkerMessageHandler = (event) => {
-                    if (event.data.action === 'requestLocation') {
-                        this.obtenerUbicacionParaSW();
-                    } else if (event.data.action === 'gpsStatus') {
-                        this.actualizarIndicadorGPS(event.data.active);
-                        if (event.data.lastSent) {
-                            this.estado.ubicacionesProcesadas++;
-                            this.actualizarDebugInfo(`SW: Ubicación ${this.estado.ubicacionesProcesadas} enviada`);
-                        }
-                    } else if (event.data.action === 'ping') {
-                        navigator.serviceWorker.controller?.postMessage({
-                            action: 'pong',
-                            timestamp: Date.now()
-                        });
-                    }
-                };
-
-                navigator.serviceWorker.addEventListener('message', this.serviceWorkerMessageHandler);
-            }
-
-            actualizarIndicadorGPS(activo) {
-                const indicator = document.getElementById('gps-indicator');
-                if (activo) {
-                    indicator.classList.add('gps-active');
-                    indicator.title = `GPS Activo - ${this.estado.ubicacionesProcesadas} enviadas | ${this.estado.consumoBateria} consumo`;
-                } else {
-                    indicator.classList.remove('gps-active');
-                    indicator.title = 'GPS Inactivo';
-                }
-            }
-
-            async obtenerUbicacionParaSW() {
-                try {
-                    const ubicacionTexto = await this.obtenerUbicacion();
-                    const [lat, lon] = ubicacionTexto.split(', ').map(s => parseFloat(s.trim()));
-                    
-                    this.estado.ultimaUbicacion = { lat, lon, timestamp: Date.now() };
-                    
-                    if (!navigator.serviceWorker.controller) {
-                        this.procesarGPSDirecto();
-                        return;
-                    }
-                    
-                    navigator.serviceWorker.controller.postMessage({
-                        action: 'locationResponse',
-                        lat: lat,
-                        lon: lon,
-                        timestamp: Date.now()
-                    });
-                    
-                } catch (error) {
-                    this.actualizarDebugInfo(`❌ Error GPS: ${error.message}`);
-                    navigator.serviceWorker.controller?.postMessage({
-                        action: 'locationError',
-                        error: error.message
-                    });
-                }
-            }
-
-            // ... resto de métodos igual que antes ...
 
             async cargarUsuarios() {
                 try {
-                    const select = document.getElementById('nombre-usuario');
-                    const usuarios = await this.enviarDatosGET({ accion: 'obtener_usuarios' });
-                    this.usuarios = usuarios;
+                    const usuarios = await this.fetchGET({ accion: 'obtener_usuarios' });
+                    this.estado.usuarios = usuarios;
+                    const select = document.getElementById('nombre');
                     select.innerHTML = '<option value="">-- Selecciona tu nombre --</option>';
                     usuarios.forEach(user => {
                         const option = document.createElement('option');
@@ -563,243 +205,337 @@
                         option.textContent = user.nombre;
                         select.appendChild(option);
                     });
-                    this.actualizarDebugInfo(`${usuarios.length} usuarios cargados`);
-                } catch (error) { 
-                    this.mostrarMensaje('Error al cargar usuarios', 'error'); 
-                    this.enviarErrorAlServidor(error); 
-                }
-            }
-
-            actualizarVehiculo(nombreSeleccionado) {
-                const vehiculoInput = document.getElementById('vehiculo');
-                const usuario = this.usuarios.find(user => user.nombre === nombreSeleccionado);
-                vehiculoInput.value = usuario ? usuario.vehiculo : '';
-            }
-
-            validarFormulario() {
-                const nombre = document.getElementById('nombre-usuario').value;
-                const vehiculo = document.getElementById('vehiculo').value.trim();
-                const km = document.getElementById('kilometraje').value.trim();
-                if (!nombre || !vehiculo || !km) {
-                    this.mostrarMensaje('Completa todos los campos', 'error');
-                    return null;
-                }
-                return { nombre, vehiculo, kilometraje: km };
-            }
-
-            async registrarEvento(tipoEvento) {
-                if (this.estado.procesando) return;
-                if (!this.estado.serviceWorkerReady) {
-                    this.mostrarMensaje('La app no está lista. Por favor, recarga la página.', 'error');
-                    return;
-                }
-                const datos = this.validarFormulario();
-                if (!datos) return;
-                
-                this.estado.procesando = true;
-                const btn = (tipoEvento === 'Inicio de Jornada') ? 
-                    document.getElementById('btn-iniciar-jornada') : 
-                    document.getElementById('btn-finalizar-jornada');
-                btn.disabled = true;
-                this.mostrarMensaje('Obteniendo ubicación...', 'loading');
-                
-                try {
-                    const ubicacion = await this.obtenerUbicacion();
-                    const payload = { 
-                        accion: 'registrar_jornada', 
-                        tipo_evento: tipoEvento, 
-                        ubicacion: ubicacion, 
-                        ...datos 
-                    };
-                    await this.enviarDatosPOST(payload);
-                    this.mostrarMensaje(`✅ ${tipoEvento} registrado.`, 'success');
-                    document.getElementById('kilometraje').value = '';
-                    
-                    if (tipoEvento === 'Inicio de Jornada') {
-                        this.iniciarSeguimiento();
-                    } else {
-                        this.detenerSeguimiento();
-                    }
                 } catch (error) {
-                    this.mostrarMensaje(`Error: ${error.message}`, 'error');
-                    this.enviarErrorAlServidor(error);
-                } finally {
-                    setTimeout(() => {
-                        this.estado.procesando = false;
-                        btn.disabled = false;
-                        this.limpiarMensaje();
-                    }, 3000);
+                    this.mostrarMensaje('Error cargando usuarios', 'error');
                 }
-            }
-            
-            iniciarSeguimiento() {
-                this.actualizarDebugInfo("🚀 Iniciando GPS optimizado...");
-                const usuario = document.getElementById('nombre-usuario').value;
-                this.estado.gpsActivo = true;
-                this.estado.ubicacionesProcesadas = 0;
-                
-                this.configurarHeartbeat();
-                this.actualizarEstimacionBateria();
-                
-                if (navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({
-                        action: 'startGps',
-                        usuario: usuario,
-                        url: this.SCRIPT_URL,
-                        intervalo: this.configuracion.intervaloGPS
-                    });
-                }
-                
-                this.actualizarIndicadorGPS(true);
-                this.mostrarMensaje(`🛰️ GPS activado - Modo ${this.estado.consumoBateria} consumo`, 'success');
-                this.actualizarDebugInfo(`✅ GPS activado - ${this.configuracion.intervaloGPS/1000}s intervalo`);
             }
 
-            detenerSeguimiento() {
-                this.actualizarDebugInfo("🛑 Deteniendo GPS...");
-                this.estado.gpsActivo = false;
-                
-                this.desactivarModoSupervivencia();
-                
-                if (this.estado.wakeLock) {
-                    this.estado.wakeLock.release();
-                    this.estado.wakeLock = null;
-                }
-                
-                if (this.estado.heartbeatInterval) {
-                    clearInterval(this.estado.heartbeatInterval);
-                    this.estado.heartbeatInterval = null;
-                }
-                
-                navigator.serviceWorker.controller?.postMessage({ action: 'stopGps' });
-                this.actualizarIndicadorGPS(false);
-                this.mostrarMensaje('⏹️ GPS detenido', 'success');
-                this.actualizarDebugInfo("✅ GPS detenido");
+            setupEventos() {
+                document.getElementById('nombre').addEventListener('change', (e) => {
+                    const usuario = this.estado.usuarios.find(u => u.nombre === e.target.value);
+                    document.getElementById('vehiculo').value = usuario ? usuario.vehiculo : '';
+                });
+
+                document.getElementById('btn-iniciar').addEventListener('click', () => this.iniciarJornada());
+                document.getElementById('btn-finalizar').addEventListener('click', () => this.finalizarJornada());
             }
-            
-            registrarServiceWorker() {
+
+            registrarSW() {
                 if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.register('/Jornada/sw.js', {
-                        scope: '/Jornada/'
-                    })
-                        .then((registration) => {
-                            this.actualizarDebugInfo("SW registrado");
-                            return navigator.serviceWorker.ready;
-                        })
+                    navigator.serviceWorker.register('/Jornada/sw.js', { scope: '/Jornada/' })
+                        .then(() => navigator.serviceWorker.ready)
                         .then(() => {
                             if (navigator.serviceWorker.controller) {
-                                this.actualizarDebugInfo("SW controlando página");
-                                this.estado.serviceWorkerReady = true;
-                                document.getElementById('btn-iniciar-jornada').disabled = false;
-                                document.getElementById('btn-finalizar-jornada').disabled = false;
+                                this.estado.swReady = true;
+                                document.getElementById('btn-iniciar').disabled = false;
+                                this.actualizarStatus('GPS Listo');
                             } else {
-                                this.actualizarDebugInfo("SW no activo, recargando...");
                                 window.location.reload();
                             }
                         })
-                        .catch(error => {
-                            this.actualizarDebugInfo("Error SW: " + error.message);
-                            this.mostrarMensaje('Error crítico: No se pudo activar el servicio de fondo.', 'error');
-                            this.enviarErrorAlServidor(error);
+                        .catch(() => {
+                            this.mostrarMensaje('Error activando GPS automático', 'error');
                         });
                 } else {
-                    this.mostrarMensaje('El seguimiento en segundo plano no es compatible.', 'error');
+                    this.mostrarMensaje('GPS automático no compatible', 'error');
                 }
             }
-            
-            obtenerUbicacion() { 
-                return new Promise((resolve, reject) => { 
-                    if (!navigator.geolocation) return reject(new Error("Geolocalización no soportada")); 
-                    navigator.geolocation.getCurrentPosition( 
-                        pos => resolve(`${pos.coords.latitude}, ${pos.coords.longitude}`), 
-                        err => reject(new Error(err.message)), 
-                        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-                    ); 
-                }); 
+
+            configurarGPS() {
+                navigator.serviceWorker?.addEventListener('message', (event) => {
+                    if (event.data.action === 'requestLocation') {
+                        this.procesarUbicacion();
+                    } else if (event.data.action === 'ubicacionEnviada') {
+                        this.estado.gpsCount++;
+                        this.actualizarContador();
+                    }
+                });
+
+                // GPS directo como respaldo
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden && this.estado.jornadaActiva) {
+                        // Al volver a la app, enviar ubicación inmediata
+                        setTimeout(() => this.procesarUbicacion(), 1000);
+                    }
+                });
             }
-            
-            async enviarErrorAlServidor(error) { 
-                try { 
-                    const usuario = document.getElementById('nombre-usuario').value || 'No definido'; 
-                    const payload = { 
-                        accion: 'registrar_error', 
-                        usuario: usuario, 
-                        error: error.message || JSON.stringify(error) 
-                    }; 
-                    await fetch(this.SCRIPT_URL, { 
-                        method: 'POST', 
-                        mode: 'no-cors', 
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
-                        body: JSON.stringify(payload) 
-                    }); 
-                } catch (e) { 
-                    console.error("Fallo al enviar el error:", e); 
-                } 
+
+            async procesarUbicacion() {
+                if (!this.estado.jornadaActiva) return;
+
+                try {
+                    const posicion = await this.obtenerGPS();
+                    const ubicacion = {
+                        lat: posicion.coords.latitude,
+                        lon: posicion.coords.longitude,
+                        timestamp: Date.now(),
+                        accuracy: posicion.coords.accuracy
+                    };
+
+                    // Evitar duplicados (mismo lugar en menos de 30 segundos)
+                    if (this.estado.ultimaUbicacion) {
+                        const tiempoDiff = ubicacion.timestamp - this.estado.ultimaUbicacion.timestamp;
+                        const distancia = this.calcularDistancia(
+                            this.estado.ultimaUbicacion.lat, this.estado.ultimaUbicacion.lon,
+                            ubicacion.lat, ubicacion.lon
+                        );
+                        
+                        if (tiempoDiff < 30000 && distancia < 0.01) { // Menos de 30 seg y 10 metros
+                            return; // No enviar ubicación duplicada
+                        }
+                    }
+
+                    await this.enviarUbicacion(ubicacion);
+                    this.estado.ultimaUbicacion = ubicacion;
+                    this.estado.gpsCount++;
+                    this.actualizarContador();
+
+                } catch (error) {
+                    console.log('Error GPS:', error.message);
+                }
             }
-            
-            async enviarDatosPOST(payload) { 
-                try { 
-                    await fetch(this.SCRIPT_URL, { 
-                        method: 'POST', 
-                        mode: 'no-cors', 
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
-                        body: JSON.stringify(payload) 
-                    }); 
-                } catch (e) { 
-                    throw new Error('Error de conexión.'); 
-                } 
+
+            async enviarUbicacion(ubicacion) {
+                const payload = {
+                    accion: 'registrar_gps',
+                    usuario: document.getElementById('nombre').value,
+                    lat: ubicacion.lat,
+                    lon: ubicacion.lon,
+                    timestamp: ubicacion.timestamp,
+                    accuracy: ubicacion.accuracy,
+                    secuencia: this.estado.gpsCount + 1
+                };
+
+                await this.fetchPOST(payload);
+
+                // Notificar al SW si está disponible
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        action: 'ubicacionEnviada',
+                        secuencia: this.estado.gpsCount + 1
+                    });
+                }
             }
-            
-            async enviarDatosGET(payload) { 
-                return new Promise((resolve, reject) => { 
-                    const cb = 'c' + Date.now(); 
-                    const s = document.createElement('script'); 
-                    const t = setTimeout(() => { 
-                        delete window[cb]; 
-                        if (s.parentNode) s.remove(); 
-                        reject(new Error('Timeout')); 
-                    }, 20000); 
-                    window[cb] = (r) => { 
-                        clearTimeout(t); 
-                        delete window[cb]; 
-                        if (s.parentNode) s.remove(); 
-                        if (r.status === 'success') { 
-                            resolve(r.data); 
-                        } else { 
-                            reject(new Error(r.message)); 
-                        } 
-                    }; 
-                    const u = new URL(this.SCRIPT_URL); 
-                    u.searchParams.append('data', JSON.stringify(payload)); 
-                    u.searchParams.append('callback', cb); 
-                    s.src = u.href; 
-                    s.onerror = () => { 
-                        clearTimeout(t); 
-                        delete window[cb]; 
-                        if (s.parentNode) s.remove(); 
-                        reject(new Error('Error de red.')); 
-                    }; 
-                    document.body.appendChild(s); 
-                }); 
+
+            calcularDistancia(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Radio de la Tierra en km
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                         Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
             }
-            
-            mostrarMensaje(msg, tipo) { 
-                const div = document.getElementById('status-message'); 
-                div.textContent = msg; 
-                div.className = `status-message status-${tipo}`; 
-                div.classList.remove('hidden'); 
+
+            async iniciarJornada() {
+                if (!this.validarFormulario()) return;
+
+                try {
+                    this.mostrarMensaje('Obteniendo ubicación inicial...', 'loading');
+                    
+                    const posicion = await this.obtenerGPS();
+                    const ubicacion = `${posicion.coords.latitude}, ${posicion.coords.longitude}`;
+                    
+                    const payload = {
+                        accion: 'registrar_jornada',
+                        tipo_evento: 'Inicio de Jornada',
+                        nombre: document.getElementById('nombre').value,
+                        vehiculo: document.getElementById('vehiculo').value,
+                        kilometraje: document.getElementById('kilometraje').value,
+                        ubicacion: ubicacion
+                    };
+
+                    await this.fetchPOST(payload);
+                    
+                    // Activar GPS automático
+                    this.estado.jornadaActiva = true;
+                    this.estado.gpsCount = 0;
+                    this.iniciarGPSAutomatico();
+                    
+                    // UI
+                    document.getElementById('btn-iniciar').disabled = true;
+                    document.getElementById('btn-finalizar').disabled = false;
+                    document.getElementById('kilometraje').value = '';
+                    document.getElementById('kilometraje').placeholder = 'Kilometraje final';
+                    
+                    this.actualizarStatus('Jornada Activa');
+                    this.actualizarContador();
+                    this.mostrarMensaje('✅ Jornada iniciada - GPS activado', 'success');
+                    
+                } catch (error) {
+                    this.mostrarMensaje('Error: ' + error.message, 'error');
+                }
             }
-            
-            limpiarMensaje() { 
-                const div = document.getElementById('status-message'); 
-                if (div) { 
-                    div.className = 'status-message hidden'; 
-                } 
+
+            async finalizarJornada() {
+                if (!document.getElementById('kilometraje').value) {
+                    this.mostrarMensaje('Ingresa el kilometraje final', 'error');
+                    return;
+                }
+
+                try {
+                    this.mostrarMensaje('Finalizando jornada...', 'loading');
+                    
+                    const posicion = await this.obtenerGPS();
+                    const ubicacion = `${posicion.coords.latitude}, ${posicion.coords.longitude}`;
+                    
+                    const payload = {
+                        accion: 'registrar_jornada',
+                        tipo_evento: 'Fin de Jornada',
+                        nombre: document.getElementById('nombre').value,
+                        vehiculo: document.getElementById('vehiculo').value,
+                        kilometraje: document.getElementById('kilometraje').value,
+                        ubicacion: ubicacion,
+                        total_ubicaciones_gps: this.estado.gpsCount
+                    };
+
+                    await this.fetchPOST(payload);
+                    
+                    // Detener GPS
+                    this.estado.jornadaActiva = false;
+                    this.detenerGPSAutomatico();
+                    
+                    // UI
+                    document.getElementById('btn-iniciar').disabled = false;
+                    document.getElementById('btn-finalizar').disabled = true;
+                    document.getElementById('kilometraje').value = '';
+                    document.getElementById('kilometraje').placeholder = 'Kilometraje inicial';
+                    
+                    this.actualizarStatus('GPS Listo');
+                    this.mostrarMensaje(`✅ Jornada finalizada - ${this.estado.gpsCount} ubicaciones registradas`, 'success');
+                    
+                } catch (error) {
+                    this.mostrarMensaje('Error: ' + error.message, 'error');
+                }
+            }
+
+            iniciarGPSAutomatico() {
+                // Service Worker GPS
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        action: 'startGps',
+                        usuario: document.getElementById('nombre').value,
+                        url: this.SCRIPT_URL,
+                        intervalo: 60000 // 1 minuto
+                    });
+                }
+
+                // GPS directo como respaldo
+                this.estado.gpsInterval = setInterval(() => {
+                    if (this.estado.jornadaActiva) {
+                        this.procesarUbicacion();
+                    }
+                }, 60000); // 1 minuto
+            }
+
+            detenerGPSAutomatico() {
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({ action: 'stopGps' });
+                }
+                
+                if (this.estado.gpsInterval) {
+                    clearInterval(this.estado.gpsInterval);
+                    this.estado.gpsInterval = null;
+                }
+            }
+
+            validarFormulario() {
+                const nombre = document.getElementById('nombre').value;
+                const vehiculo = document.getElementById('vehiculo').value;
+                const km = document.getElementById('kilometraje').value;
+                
+                if (!nombre || !vehiculo || !km) {
+                    this.mostrarMensaje('Completa todos los campos', 'error');
+                    return false;
+                }
+                return true;
+            }
+
+            actualizarStatus(texto) {
+                const status = document.getElementById('status');
+                status.textContent = texto;
+                status.className = this.estado.jornadaActiva ? 'status active' : 'status';
+            }
+
+            actualizarContador() {
+                document.getElementById('gps-count').textContent = `Ubicaciones: ${this.estado.gpsCount}`;
+            }
+
+            obtenerGPS() {
+                return new Promise((resolve, reject) => {
+                    if (!navigator.geolocation) {
+                        reject(new Error('GPS no disponible'));
+                        return;
+                    }
+                    
+                    navigator.geolocation.getCurrentPosition(
+                        resolve,
+                        (error) => reject(new Error('Error obteniendo ubicación')),
+                        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                    );
+                });
+            }
+
+            mostrarMensaje(texto, tipo) {
+                const mensaje = document.getElementById('message');
+                mensaje.textContent = texto;
+                mensaje.className = `message show ${tipo}`;
+                
+                if (tipo !== 'loading') {
+                    setTimeout(() => {
+                        mensaje.classList.remove('show');
+                    }, 3000);
+                }
+            }
+
+            async fetchPOST(data) {
+                await fetch(this.SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(data)
+                });
+            }
+
+            async fetchGET(data) {
+                return new Promise((resolve, reject) => {
+                    const callback = 'cb' + Date.now();
+                    const script = document.createElement('script');
+                    const timeout = setTimeout(() => {
+                        delete window[callback];
+                        script.remove();
+                        reject(new Error('Timeout'));
+                    }, 15000);
+
+                    window[callback] = (response) => {
+                        clearTimeout(timeout);
+                        delete window[callback];
+                        script.remove();
+                        if (response.status === 'success') {
+                            resolve(response.data);
+                        } else {
+                            reject(new Error(response.message));
+                        }
+                    };
+
+                    const url = new URL(this.SCRIPT_URL);
+                    url.searchParams.set('data', JSON.stringify(data));
+                    url.searchParams.set('callback', callback);
+                    script.src = url.href;
+                    script.onerror = () => {
+                        clearTimeout(timeout);
+                        delete window[callback];
+                        script.remove();
+                        reject(new Error('Error de red'));
+                    };
+                    document.body.appendChild(script);
+                });
             }
         }
-        
-        document.addEventListener('DOMContentLoaded', () => { 
-            new SistemaJornada(); 
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new JornadaSimple();
         });
     </script>
 </body>
