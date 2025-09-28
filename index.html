@@ -14,10 +14,13 @@
             <h2>☀️🌙 Registro de Jornada</h2>
             <label for="nombre-usuario">Tu Nombre:</label>
             <select id="nombre-usuario" required><option value="">-- Cargando usuarios... --</option></select>
+            
             <label for="vehiculo">Vehículo:</label>
-            <input type="text" id="vehiculo" readonly required>
+            <input type="text" id="vehiculo" placeholder="Selecciona tu nombre o escribe" required>
+
             <label for="kilometraje">Kilometraje:</label>
             <input type="number" id="kilometraje" placeholder="Ej: 121205" required>
+            
             <button type="button" id="btn-iniciar-jornada" class="btn-confirm">▶️ Iniciar Jornada y GPS</button>
             <button type="button" id="btn-finalizar-jornada" class="btn-cancel">⏹️ Finalizar Jornada y GPS</button>
         </div>
@@ -26,7 +29,7 @@
     <script>
         class SistemaJornada {
             constructor() {
-                this.SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTMbUM3OZNnozxj_g8OONJG4zIubpSoHGA59GbliTlUwU0EJAoOSNuyUGhX5FDfsCC/exec";
+                this.SCRIPT_URL = "https.script.google.com/macros/s/AKfycbzTMbUM3OZNnozxj_g8OONJG4zIubpSoHGA59GbliTlUwU0EJAoOSNuyUGhX5FDfsCC/exec";
                 this.estado = { procesando: false, idSeguimiento: null, usuarios: [] };
                 this.inicializar();
             }
@@ -60,6 +63,7 @@
                 }
             }
 
+            // CAMBIO CLAVE: Esta función ahora solo rellena el campo, pero no lo bloquea.
             actualizarVehiculo(nombreSeleccionado) {
                 const vehiculoInput = document.getElementById('vehiculo');
                 const usuario = this.usuarios.find(user => user.nombre === nombreSeleccionado);
