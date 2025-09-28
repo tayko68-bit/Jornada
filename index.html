@@ -138,6 +138,18 @@
             cursor:pointer
         }
         .gps-active{background-color:#28a745}
+        .debug-info{
+            position:fixed;
+            bottom:10px;
+            left:10px;
+            background:rgba(0,0,0,0.8);
+            color:white;
+            padding:5px 10px;
+            border-radius:5px;
+            font-size:12px;
+            max-width:300px;
+            z-index:2000
+        }
         .loading-spinner{
             display:inline-block;
             width:20px;
@@ -162,6 +174,7 @@
 </head>
 <body>
     <div class="gps-indicator" id="gps-indicator" title="Estado GPS"></div>
+    <div class="debug-info" id="debug-info">Esperando...</div>
     <div class="container">
         <div class="vista">
             <h2>☀️🌙 Registro de Jornada</h2>
@@ -190,25 +203,36 @@
                     gpsActivo: false,
                     wakeLock: null,
                     heartbeatInterval: null,
-                    visibilityChangeHandler: null
+                    visibilityChangeHandler: null,
+                    ubicacionesProcesadas: 0,
+                    ultimaUbicacion: null
                 };
                 this.inicializar();
             }
 
+            actualizarDebugInfo(mensaje) {
+                const debugDiv = document.getElementById('debug-info');
+                const timestamp = new Date().toLocaleTimeString();
+                debugDiv.innerHTML = `${timestamp}: ${mensaje}<br>Ubicaciones: ${this.estado.ubicacionesProcesadas}`;
+                console.log(`[DEBUG] ${mensaje}`);
+            }
+
             async inicializar() {
+                this.actualizarDebugInfo("Inicializando sistema...");
                 this.bindearEventos();
                 await this.cargarUsuarios();
                 this.registrarServiceWorker();
                 this.configurarEscuchaServiceWorker();
                 this.configurarMantenimientoSegundoPlano();
                 this.configurarIndicadorGPS();
+                this.actualizarDebugInfo("Sistema listo");
             }
 
             configurarIndicadorGPS() {
                 const indicator = document.getElementById('gps-indicator');
                 indicator.addEventListener('click', () => {
                     if (this.estado.gpsActivo) {
-                        this.mostrarMensaje('GPS activo - Funcionando en segundo plano', 'success');
+                        this.mostrarMensaje(`GPS activo - ${this.estado.ubicacionesProcesadas} ubicaciones enviadas`, 'success');
                     } else {
                         this.mostrarMensaje('GPS inactivo', 'error');
                     }
@@ -229,14 +253,14 @@
                             if (this.estado.gpsActivo && document.visibilityState === 'visible' && !this.estado.wakeLock) {
                                 try {
                                     this.estado.wakeLock = await navigator.wakeLock.request('screen');
-                                    console.log('[Página] Wake Lock activado');
+                                    this.actualizarDebugInfo("Wake Lock activado");
                                 } catch (err) {
-                                    console.log('[Página] No se pudo activar Wake Lock:', err);
+                                    this.actualizarDebugInfo("Wake Lock falló");
                                 }
                             }
                         });
                     } catch (err) {
-                        console.log('[Página] Wake Lock no disponible');
+                        this.actualizarDebugInfo("Wake Lock no disponible");
                     }
                 }
             }
@@ -248,20 +272,21 @@
                             action: 'heartbeat',
                             timestamp: Date.now()
                         });
+                        this.actualizarDebugInfo("Heartbeat enviado");
                     }
-                }, 30000);
+                }, 15000); // Cada 15 segundos
             }
 
             configurarVisibilityHandler() {
                 this.estado.visibilityChangeHandler = () => {
                     if (this.estado.gpsActivo) {
                         if (document.hidden) {
-                            console.log('[Página] Página oculta - Notificando al SW');
+                            this.actualizarDebugInfo("Página oculta");
                             navigator.serviceWorker.controller?.postMessage({
                                 action: 'pageHidden'
                             });
                         } else {
-                            console.log('[Página] Página visible - Notificando al SW');
+                            this.actualizarDebugInfo("Página visible");
                             navigator.serviceWorker.controller?.postMessage({
                                 action: 'pageVisible'
                             });
@@ -277,14 +302,14 @@
                         if (this.estado.gpsActivo) {
                             try {
                                 await navigator.locks.request('gps-tracking', { mode: 'exclusive' }, async (lock) => {
-                                    console.log('[Página] Web Lock adquirido para GPS');
+                                    this.actualizarDebugInfo("Web Lock adquirido");
                                     while (this.estado.gpsActivo) {
                                         await new Promise(resolve => setTimeout(resolve, 5000));
                                     }
-                                    console.log('[Página] Web Lock liberado');
+                                    this.actualizarDebugInfo("Web Lock liberado");
                                 });
                             } catch (err) {
-                                console.log('[Página] Error con Web Lock:', err);
+                                this.actualizarDebugInfo("Error con Web Lock");
                             }
                         }
                     };
@@ -299,23 +324,41 @@
             }
 
             configurarEscuchaServiceWorker() {
-                navigator.serviceWorker.addEventListener('message', (event) => {
-                    console.log('[Página] Mensaje del SW:', event.data);
+                // Eliminar listeners anteriores si existen
+                if (this.serviceWorkerMessageHandler) {
+                    navigator.serviceWorker.removeEventListener('message', this.serviceWorkerMessageHandler);
+                }
+
+                this.serviceWorkerMessageHandler = (event) => {
+                    this.actualizarDebugInfo(`SW dice: ${event.data.action}`);
                     
                     if (event.data.action === 'requestLocation') {
-                        console.log('[Página] SW solicita ubicación');
+                        this.actualizarDebugInfo("SW solicita ubicación");
                         this.obtenerUbicacionParaSW();
                     } else if (event.data.action === 'gpsStatus') {
                         this.actualizarIndicadorGPS(event.data.active);
+                        if (event.data.lastSent) {
+                            this.estado.ubicacionesProcesadas++;
+                            this.actualizarDebugInfo(`Ubicación ${this.estado.ubicacionesProcesadas} enviada`);
+                        }
+                    } else if (event.data.action === 'ping') {
+                        // Responder inmediatamente al ping del SW
+                        navigator.serviceWorker.controller?.postMessage({
+                            action: 'pong',
+                            timestamp: Date.now()
+                        });
+                        this.actualizarDebugInfo("Ping respondido");
                     }
-                });
+                };
+
+                navigator.serviceWorker.addEventListener('message', this.serviceWorkerMessageHandler);
             }
 
             actualizarIndicadorGPS(activo) {
                 const indicator = document.getElementById('gps-indicator');
                 if (activo) {
                     indicator.classList.add('gps-active');
-                    indicator.title = 'GPS Activo';
+                    indicator.title = `GPS Activo - ${this.estado.ubicacionesProcesadas} enviadas`;
                 } else {
                     indicator.classList.remove('gps-active');
                     indicator.title = 'GPS Inactivo';
@@ -324,8 +367,18 @@
 
             async obtenerUbicacionParaSW() {
                 try {
+                    this.actualizarDebugInfo("Obteniendo GPS...");
                     const ubicacionTexto = await this.obtenerUbicacion();
                     const [lat, lon] = ubicacionTexto.split(', ').map(s => parseFloat(s.trim()));
+                    
+                    this.estado.ultimaUbicacion = { lat, lon, timestamp: Date.now() };
+                    this.actualizarDebugInfo(`GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+                    
+                    // Verificar que el SW sigue disponible
+                    if (!navigator.serviceWorker.controller) {
+                        this.actualizarDebugInfo("ERROR: SW perdido");
+                        return;
+                    }
                     
                     navigator.serviceWorker.controller.postMessage({
                         action: 'locationResponse',
@@ -333,9 +386,12 @@
                         lon: lon,
                         timestamp: Date.now()
                     });
+                    
+                    this.actualizarDebugInfo("Ubicación enviada al SW");
+                    
                 } catch (error) {
-                    console.error('[Página] Error al obtener ubicación:', error);
-                    navigator.serviceWorker.controller.postMessage({
+                    this.actualizarDebugInfo(`Error GPS: ${error.message}`);
+                    navigator.serviceWorker.controller?.postMessage({
                         action: 'locationError',
                         error: error.message
                     });
@@ -354,6 +410,7 @@
                         option.textContent = user.nombre;
                         select.appendChild(option);
                     });
+                    this.actualizarDebugInfo(`${usuarios.length} usuarios cargados`);
                 } catch (error) { 
                     this.mostrarMensaje('Error al cargar usuarios', 'error'); 
                     this.enviarErrorAlServidor(error); 
@@ -423,25 +480,34 @@
             }
             
             iniciarSeguimiento() {
-                console.log("[Página] Iniciando seguimiento GPS...");
+                this.actualizarDebugInfo("Iniciando GPS tracking...");
                 const usuario = document.getElementById('nombre-usuario').value;
                 this.estado.gpsActivo = true;
+                this.estado.ubicacionesProcesadas = 0;
                 
                 document.dispatchEvent(new CustomEvent('gps-started'));
+                
+                // Verificar que el SW esté disponible
+                if (!navigator.serviceWorker.controller) {
+                    this.actualizarDebugInfo("ERROR: SW no disponible");
+                    this.mostrarMensaje('Error: Service Worker no disponible', 'error');
+                    return;
+                }
                 
                 navigator.serviceWorker.controller.postMessage({
                     action: 'startGps',
                     usuario: usuario,
                     url: this.SCRIPT_URL,
-                    intervalo: 60000
+                    intervalo: 30000 // 30 segundos para testing, luego cambiar a 60000
                 });
                 
                 this.actualizarIndicadorGPS(true);
                 this.mostrarMensaje('🛰️ GPS activado - Funciona en segundo plano', 'success');
+                this.actualizarDebugInfo("GPS activado");
             }
 
             detenerSeguimiento() {
-                console.log("[Página] Deteniendo seguimiento GPS...");
+                this.actualizarDebugInfo("Deteniendo GPS...");
                 this.estado.gpsActivo = false;
                 
                 if (this.estado.wakeLock) {
@@ -449,9 +515,10 @@
                     this.estado.wakeLock = null;
                 }
                 
-                navigator.serviceWorker.controller.postMessage({ action: 'stopGps' });
+                navigator.serviceWorker.controller?.postMessage({ action: 'stopGps' });
                 this.actualizarIndicadorGPS(false);
                 this.mostrarMensaje('⏹️ GPS detenido', 'success');
+                this.actualizarDebugInfo("GPS detenido");
             }
             
             registrarServiceWorker() {
@@ -460,22 +527,28 @@
                         scope: '/Jornada/'
                     })
                         .then((registration) => {
-                            console.log('[Página] Service Worker Registrado.');
+                            this.actualizarDebugInfo("SW registrado");
                             return navigator.serviceWorker.ready;
                         })
                         .then(() => {
                             if (navigator.serviceWorker.controller) {
-                                console.log('[Página] Service Worker listo y controlando la página.');
+                                this.actualizarDebugInfo("SW controlando página");
                                 this.estado.serviceWorkerReady = true;
                                 document.getElementById('btn-iniciar-jornada').disabled = false;
                                 document.getElementById('btn-finalizar-jornada').disabled = false;
+                                
+                                // Test de comunicación
+                                navigator.serviceWorker.controller.postMessage({
+                                    action: 'test',
+                                    timestamp: Date.now()
+                                });
                             } else {
-                                console.log('[Página] Service Worker registrado pero no activo. Refrescando...');
+                                this.actualizarDebugInfo("SW no activo, recargando...");
                                 window.location.reload();
                             }
                         })
                         .catch(error => {
-                            console.error('[Página] Error al registrar Service Worker:', error);
+                            this.actualizarDebugInfo("Error SW: " + error.message);
                             this.mostrarMensaje('Error crítico: No se pudo activar el servicio de fondo.', 'error');
                             this.enviarErrorAlServidor(error);
                         });
